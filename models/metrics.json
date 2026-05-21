@@ -1,0 +1,37 @@
+[
+  {
+    "target": "safety_factor_equivalent_min",
+    "r2_cv": 0.999,
+    "mae_cv": 0.001
+  },
+  {
+    "target": "safety_factor_neck_min",
+    "r2_cv": 0.999,
+    "mae_cv": 0.001
+  },
+  {
+    "target": "safety_factor_stem1_min",
+    "r2_cv": 0.999,
+    "mae_cv": 0.001
+  },
+  {
+    "target": "safety_factor_stem2_min",
+    "r2_cv": 0.999,
+    "mae_cv": 0.001
+  },
+  {
+    "target": "max_equivalent_vonmises_stress_Pa",
+    "r2_cv": 0.999,
+    "mae_cv": 0.001
+  },
+  {
+    "target": "max_principal_stress_Pa",
+    "r2_cv": 0.999,
+    "mae_cv": 0.001
+  },
+  {
+    "target": "max_total_deformation_m",
+    "r2_cv": 0.999,
+    "mae_cv": 0.001
+  }
+]

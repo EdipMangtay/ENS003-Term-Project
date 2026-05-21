@@ -1,0 +1,17 @@
+\frametitle{Demo}
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small]
+$ ./run.sh convert
+wrote 270 rows -> data/dataset.csv
+total rows kept: 270 (unique grid points: 162)
+
+$ ./run.sh check | head -6
+rows=270  columns=30
+unique grid points: 162
+non-null target counts:
+  safety_factor_neck_min: 270 / 270
+  ...
+\end{lstlisting}
+
+  \vspace{0.4cm}
+  Çıktı, Recep'in \file{train.py}'ına doğrudan beslenebilir durumda.
+  Şema, modelleme tarafıyla \alert{tek bir doğruluk kaynağı}'nda buluşuyor.
