@@ -1,0 +1,52 @@
+[
+  {
+    "target": "max_equivalent_vonmises_stress_Pa",
+    "model": "xgboost_on_synth_100k",
+    "n_train": 79999,
+    "r2_synth_val": 0.9622041917866239,
+    "mae_synth_val": 17694762.012190655,
+    "r2_real_18": 0.999952333213582,
+    "mae_real_18": 1547398.2222222222,
+    "y_real_mean": 914712777.7777778
+  },
+  {
+    "target": "max_principal_stress_Pa",
+    "model": "xgboost_on_synth_100k",
+    "n_train": 79999,
+    "r2_synth_val": 0.9641217088429541,
+    "mae_synth_val": 19033253.94082635,
+    "r2_real_18": 0.9999583422060155,
+    "mae_real_18": 1472336.8888888923,
+    "y_real_mean": 1007152777.7777778
+  },
+  {
+    "target": "max_total_deformation_m",
+    "model": "xgboost_on_synth_100k",
+    "n_train": 79999,
+    "r2_synth_val": 0.9628074015850495,
+    "mae_synth_val": 2.5812603706416187e-05,
+    "r2_real_18": 0.999956255265838,
+    "mae_real_18": 2.033408671719689e-06,
+    "y_real_mean": 0.0013201311111111
+  },
+  {
+    "target": "safety_factor_equivalent_min",
+    "model": "xgboost_on_synth_100k",
+    "n_train": 79999,
+    "r2_synth_val": 0.9153966105863625,
+    "mae_synth_val": 0.029922579114467284,
+    "r2_real_18": 0.9999134081568909,
+    "mae_real_18": 0.002245877729132009,
+    "y_real_mean": 0.9951788578857662
+  },
+  {
+    "target": "safety_factor_shear_min",
+    "model": "xgboost_on_synth_100k",
+    "n_train": 79999,
+    "r2_synth_val": 0.9203421227295194,
+    "mae_synth_val": 0.027030683776493775,
+    "r2_real_18": 0.9999238920460837,
+    "mae_real_18": 0.002047935252719445,
+    "y_real_mean": 0.9225205555555553
+  }
+]

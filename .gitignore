@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+.env
+*.log
+
+# Trained artifacts (rebuilt via train.py / Docker)
+models/*.joblib

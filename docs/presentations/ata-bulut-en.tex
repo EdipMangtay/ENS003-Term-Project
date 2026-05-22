@@ -1,0 +1,209 @@
+\input{_preamble.tex}
+
+\newcommand{\courseHeader}{ENS003 --- Digital Twins for Health Sciences}
+\newcommand{\courseSubheader}{Istinye University · Faculty of Engineering and Natural Sciences}
+\newcommand{\instructor}{Instructor: Prof. Dr. Şenol Pişkin}
+\newcommand{\projectTitle}{A Surrogate ML Model for a Ti-6Al-4V Cementless Hip Implant}
+
+\title{Data Pipeline and Feature Engineering}
+\subtitle{\projectTitle}
+\author{Ata Bulut \\ \small Computer Engineering · 220901582}
+\date{May 2026 \\ \scriptsize \courseHeader{} · \instructor}
+
+\begin{document}
+
+\maketitle
+
+% ---------------------------------------------------------------------------
+\begin{frame}{In this talk}
+  \begin{itemize}
+    \item Turning the FEA team's raw output into something an ML model can eat
+    \item The pipeline from ANSYS export to \file{data/dataset.csv}
+    \item Architecture of \file{convert.py} and \file{preprocess.py}
+    \item Bugs I hit, tests and coverage
+  \end{itemize}
+  \vspace{0.4cm}
+  \begin{block}{My responsibility (software team)}
+    Data conversion, schema design, feature engineering,
+    and the CV grouping helper.
+  \end{block}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{The data source}
+  ANSYS Workbench parametric Design Point sweep:
+  \begin{itemize}
+    \item \(m \in \{50, 60, 70, 80, 90, 100\}\unit{kg}\) (6 values)
+    \item \(K \in \{2, 2.5, \ldots, 6\}\) (9 values, body-weight multiplier)
+    \item \(\theta \in \{0°, 10°, 20°\}\) (3 values, force tilt angle)
+  \end{itemize}
+  \vspace{0.3cm}
+  \begin{center}
+    \(\boldsymbol{6 \times 9 \times 3 = 162}\) unique design points
+  \end{center}
+  \vspace{0.3cm}
+  ANSYS additionally re-ran 108 of them after a project update --- 270
+  rows in total. Duplicates differ only at the 5th--6th significant figure
+  (solver micro-noise).
+
+  \vspace{0.3cm}
+  \begin{block}{Call: keep all 270 rows}
+    \footnotesize
+    Every ANSYS solve was expensive --- throwing them away is wasteful.
+    To avoid train/test leakage, cross-validation is
+    \alert{grouped on \(\boldsymbol{(m, K, \theta)}\)} so duplicates
+    always end up in the same fold.
+  \end{block}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{\file{convert.py} architecture}
+\begin{lstlisting}
+def convert(source=None, out=None):
+    src = source if source else _pick_source(prefer_csv=True)
+    if src.suffix.lower() == ".csv":
+        raw = _read_csv(src)          # skip 7-line preamble
+    else:
+        raw = _read_xlsx(src)         # drop the "Units" row
+
+    df = _normalize_columns(raw)      # "P1" or "P1 - Force..."
+    df = pd.to_numeric(...).dropna()
+    df = _convert_units(df)           # MPa -> Pa, mm -> m
+    df = _attach_constants(df, ModelConstants())
+    df["case_id"] = [f"DP_{i+1:03d}" for i in range(len(df))]
+    df.to_csv(out, index=False)
+    return df
+\end{lstlisting}
+
+  \begin{itemize}\small
+    \item Two source formats: CSV (preamble + bare \code{P1}) and XLSX
+          (Units row + \code{P1 - Force X Component})
+    \item A single regex \verb|^\s*(P\d+)\b| catches both header forms
+    \item Unit normalisation: MPa\(\to\)Pa, mm\(\to\)m
+    \item ANSYS constants (mesh, material) attached row-wise from \code{ModelConstants}
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{\file{preprocess.py}: feature engineering}
+\begin{lstlisting}
+INPUT_FEATURES = ["patient_mass_kg", "K_factor", "force_angle_deg"]
+DERIVED_FEATURES = ["force_x_N", "force_z_N", "force_magnitude_N"]
+
+def add_features(df):
+    out = df.copy()
+    rad = np.deg2rad(out["force_angle_deg"])
+    Fmag = out["patient_mass_kg"] * 9.81 * out["K_factor"]
+    out["force_x_N"] = Fmag * np.cos(rad)
+    out["force_z_N"] = Fmag * np.sin(rad)
+    out["force_magnitude_N"] = Fmag
+    return out
+\end{lstlisting}
+
+  \vspace{0.2cm}
+  \begin{itemize}\small
+    \item The model sees three independent inputs: \(m, K, \theta\)
+    \item \(F_x, F_z, |F|\) are derived \textbf{analytically} from those three
+          --- predict-time and train-time use the same formula, no drift
+    \item \(F_y\) and \code{fixed\_support\_n\_faces} are constant across all
+          rows (zero variance) \(\Rightarrow\) dropped from the input vector
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{CV grouping --- \code{grid\_groups()}}
+\begin{lstlisting}
+GRID_KEYS = ("patient_mass_kg", "K_factor", "force_angle_deg")
+
+def grid_groups(df):
+    """Return a group ID per row, equal for ANSYS re-runs."""
+    grouped = df[list(GRID_KEYS)].astype(str).agg("|".join, axis=1)
+    return grouped.to_numpy()
+\end{lstlisting}
+
+  \vspace{0.4cm}
+  \textbf{How Recep wires it in \code{train.py}:}
+  \begin{itemize}\small
+    \item \code{GroupKFold(n\_splits=5).split(X, y, groups=grid\_groups(df))}
+    \item Every duplicate of the same \((m, K, \theta)\) triplet shares a fold
+    \item Without this, \(R^2\) would inflate to \(\approx 1.0\) (leakage)
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Bugs I hit on the way}
+  \begin{itemize}
+    \item \textbf{The XLSX ``Units'' row:} the first data row is actually a
+          unit label (\code{kg, MPa, mm, ...}). pandas inferred \code{object}
+          dtype for the whole column, breaking arithmetic.
+          \alert{Fix:} drop the row, then \code{pd.to\_numeric(errors=`coerce')}
+    \item \textbf{Two header formats:} CSV has \code{P1}, XLSX has
+          \code{P1 - Force X Component}. \alert{Fix:} a single regex
+          \verb|^\s*(P\d+)\b| catches both.
+    \item \textbf{\code{out=OUT\_CSV} default argument:} Python binds defaults
+          at definition time, so \code{monkeypatch} in tests was a no-op ---
+          tests silently wrote to the real \code{data/dataset.csv}.
+          \alert{Fix:} \code{out=None} + resolve inside the function.
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Tests \& coverage}
+  \begin{center}
+    \begin{tabular}{lrr}
+      \toprule
+      File & Statements & Coverage \\
+      \midrule
+      \file{src/convert.py}      & 115 & 90\% \\
+      \file{src/preprocess.py}   & 27  & 100\% \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+
+  \vspace{0.5cm}
+  \textbf{Key test cases:}
+  \begin{itemize}\small
+    \item Immutability: \code{add\_features()} does not mutate its input
+    \item Trigonometry: \(F_x^2 + F_z^2 = |F|^2\) for every row
+    \item Stale \(F_x\)/\(F_z\) columns get overwritten (predict-time consistency)
+    \item ANSYS re-runs share a single \code{grid\_groups()} ID
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{Demo}
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small]
+$ ./run.sh convert
+wrote 270 rows -> data/dataset.csv
+total rows kept: 270 (unique grid points: 162)
+
+$ ./run.sh check | head -6
+rows=270  columns=30
+unique grid points: 162
+non-null target counts:
+  safety_factor_neck_min: 270 / 270
+  ...
+\end{lstlisting}
+
+  \vspace{0.4cm}
+  The output feeds directly into Recep's \file{train.py}. The schema is
+  the \alert{single source of truth} we share with the modelling side.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Questions}
+  \vfill
+  \begin{center}
+    \Large Thank you.\\[0.4cm]
+    \normalsize Questions?
+  \end{center}
+  \vfill
+  \scriptsize
+  \begin{itemize}
+    \item \file{src/convert.py}, \file{src/preprocess.py}
+    \item \file{tests/test\_preprocess.py} (12 tests, 100\% coverage)
+    \item Development log: \file{docs/PROJECT\_NOTES.md} Sprints 1--2
+  \end{itemize}
+\end{frame}
+
+\end{document}

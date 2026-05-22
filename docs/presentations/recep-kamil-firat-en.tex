@@ -1,0 +1,255 @@
+\input{_preamble.tex}
+
+\newcommand{\courseHeader}{ENS003 --- Digital Twins for Health Sciences}
+\newcommand{\courseSubheader}{Istinye University · Faculty of Engineering and Natural Sciences}
+\newcommand{\instructor}{Instructor: Prof. Dr. Şenol Pişkin}
+\newcommand{\projectTitle}{A Surrogate ML Model for a Ti-6Al-4V Cementless Hip Implant}
+
+\title{Surrogate Model: GPR and 5-fold Grouped CV}
+\subtitle{\projectTitle}
+\author{Recep Kamil Fırat \\ \small Computer Engineering · 2309011079}
+\date{May 2026 \\ \scriptsize \courseHeader{} · \instructor}
+
+\begin{document}
+
+\maketitle
+
+% ---------------------------------------------------------------------------
+\begin{frame}{In this talk}
+  \begin{itemize}
+    \item What the surrogate is for: pulling FEA output down to milliseconds
+    \item Why Gaussian Process Regression (GPR), not XGBoost
+    \item Cross-validation strategy: \textit{why} 5-fold grouped
+    \item \(R^2_{\text{CV}}\) measured for all 10 targets
+    \item Limits we report honestly
+  \end{itemize}
+  \vspace{0.4cm}
+  \begin{block}{My responsibility (software team)}
+    Surrogate model choice, hyperparameter tuning, cross-validation,
+    \file{src/train.py} and \file{models/}.
+  \end{block}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{The problem}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.55\textwidth}
+    The mechanical team solves each scenario with ANSYS Static Structural:
+    \begin{itemize}\small
+      \item One solve takes 5--10 minutes
+      \item Covers a single mass/K/angle point
+      \item \alert{Unsuitable} for an interactive dashboard
+    \end{itemize}
+    \vspace{0.4cm}
+    Surrogate goals:
+    \begin{itemize}\small
+      \item \(\approx\) 1 ms response for the same inputs
+      \item \alert{Reliable interpolation} inside the training grid
+      \item Posterior \(\pm\sigma\) (calibrated uncertainty)
+    \end{itemize}
+    \column{0.45\textwidth}
+    \begin{center}
+      \footnotesize
+      \begin{tabular}{lr}
+        \toprule
+        FEA solve & 5--10 min \\
+        Surrogate predict & \(\approx\) 1 ms \\
+        Speed-up & \(\sim 10^5\) \\
+        \bottomrule
+      \end{tabular}
+    \end{center}
+  \end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Model selection --- 270 rows, target \(\mathrm{SF}_{\text{neck}}\)}
+  Head-to-head benchmark on the same data, 5-fold grouped CV:
+  \begin{center}\footnotesize
+    \begin{tabular}{lrrl}
+      \toprule
+      Model & \(R^2_{\text{CV}}\) & MAE\(_{\text{CV}}\) & Unique outputs / 51 \\
+      \midrule
+      XGBoost (depth=1, stumps) & 0.986 & 0.032 & 18 \\
+      XGBoost (depth=3)         & 0.988 & 0.024 & 27 \\
+      Kernel Ridge (RBF)        & -0.005 & 0.369 & 5 \\
+      \alert{\textbf{Gaussian Process (RBF + white)}} & \alert{\textbf{0.9999}} & \alert{\textbf{0.00077}} & \alert{\textbf{51}} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+
+  \vspace{0.4cm}
+  \textbf{Smoothness probe:} fix \(K=2.5, \theta=0°\), sweep the mass
+  slider over 51 points. GPR produces a distinct value at every point
+  (continuous curve); tree-based methods collapse onto few distinct
+  values \(\Rightarrow\) \alert{stepped} function.
+
+  \vspace{0.3cm}
+  \footnotesize
+  On 162 unique grid points, XGBoost averages \(\sim 6\) samples per leaf,
+  which is exactly what produces the step-function behaviour.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{GPR architecture}
+\begin{lstlisting}
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
+
+kernel = (
+    ConstantKernel(1.0, (1e-3, 1e3))
+    * RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e3))
+    + WhiteKernel(noise_level=1e-3, noise_level_bounds=(1e-6, 1e-1))
+)
+
+base = GaussianProcessRegressor(
+    kernel=kernel, normalize_y=True,
+    n_restarts_optimizer=5, random_state=42, alpha=1e-8,
+)
+
+model = TransformedTargetRegressor(
+    regressor=base, transformer=StandardScaler(),
+)
+\end{lstlisting}
+
+  \begin{itemize}\small
+    \item Kernel hyperparameters fit by marginal-likelihood maximisation
+    \item \code{normalize\_y} \(+\) \code{TransformedTargetRegressor} \(\Rightarrow\) target-scale invariant
+    \item Closed-form posterior \(\Rightarrow\) every prediction comes with \(\sigma\) for free
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{CV strategy: \textit{why} grouped?}
+  \textbf{Problem:} 108 of 270 rows are ANSYS re-runs --- the same
+  \((m, K, \theta)\) point repeated with tiny numerical differences.
+
+  \vspace{0.3cm}
+  \begin{itemize}
+    \item With plain \code{KFold}\,/\,\code{LOO}, the same grid point can
+          land in both train and test folds \(\Rightarrow\) \alert{leakage}
+    \item Visible symptom: \(R^2\) inflates artificially to \(\approx 1.0\)
+    \item We lose the ability to measure honest out-of-sample performance
+  \end{itemize}
+
+  \vspace{0.4cm}
+  \textbf{Fix:} \code{GroupKFold(n\_splits=5)}, with the group ID coming
+  from Ata's \code{grid\_groups()} helper:
+  \begin{center}
+    \texttt{"\,m\,|\,K\,|\,theta\,"} \quad \(\Rightarrow\) \quad re-runs share a fold
+  \end{center}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{The training loop}
+\begin{lstlisting}
+from sklearn.model_selection import GroupKFold
+
+def _grouped_cv_eval(X, y, groups, n_splits):
+    preds = np.full(len(y), np.nan)
+    for tr, te in GroupKFold(n_splits).split(X, y, groups=groups):
+        model, _ = _make_estimator()
+        model.fit(X.iloc[tr], y.iloc[tr])
+        preds[te] = model.predict(X.iloc[te])
+    return {
+        "r2_cv": r2_score(y, preds),
+        "mae_cv": mean_absolute_error(y, preds),
+    }
+\end{lstlisting}
+
+  \vspace{0.3cm}
+  Per target:
+  \begin{enumerate}\small
+    \item Out-of-fold predictions across 5 folds
+    \item Final fit on the full 270 rows \(\Rightarrow\) \file{models/<target>.joblib}
+    \item Metrics written to \file{models/metrics.json}
+  \end{enumerate}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{CV results --- 10 targets}
+  \begin{center}\footnotesize
+    \begin{tabular}{lrr}
+      \toprule
+      Target & \(R^2_{\text{CV}}\) & MAE\(_{\text{CV}}\) \\
+      \midrule
+      safety\_factor\_neck\_min            & 0.9999 & 7.7e-4 \\
+      safety\_factor\_stem1\_min           & 0.9999 & 8.3e-4 \\
+      safety\_factor\_stem2\_min           & 0.9997 & 4.4e-3 \\
+      max\_equivalent\_vonmises\_stress\_Pa & 0.9998 & 0.53 MPa \\
+      avg\_equivalent\_vonmises\_stress\_Pa & 0.9998 & 10.6 kPa \\
+      \alert{min\_equivalent\_vonmises\_stress\_Pa} & \alert{0.034} & \alert{(FEA noise floor)} \\
+      max\_principal\_stress\_Pa            & 0.9998 & 0.57 MPa \\
+      avg\_principal\_stress\_Pa            & 0.9998 & 5.0 kPa \\
+      min\_principal\_stress\_Pa            & 0.9998 & 0.15 MPa \\
+      max\_total\_deformation\_m            & 0.9998 & \(7.4 \times 10^{-7}\) m \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+
+  \vspace{0.4cm}
+  9/10 targets clear \(R^2 > 0.999\); \code{min\_equivalent} sits at
+  \(\sim 10^{-10}\) --- the FEA solver's noise floor. We report it honestly
+  and hide it from the dashboard.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Honest limits}
+  \begin{itemize}
+    \item \textbf{Interpolation is reliable, extrapolation is not.}
+          Predictions for \(m < 50\unit{kg}\), \(K > 6\), \(\theta > 20°\)
+          should be treated with care.
+    \item \textbf{18-face fixed support is constant.} Different fixation
+          patterns are not modelled; new FEA grid would be needed.
+    \item \textbf{\(F_y = 0\) in every row.} No out-of-plane loading;
+          real activities are mostly in-plane so this is acceptable,
+          but not complete.
+    \item \textbf{Kernel hyperparameters near the bounds for some targets
+          (ConvergenceWarning).} Marginal impact on \(R^2\); the bounds
+          can be widened later.
+  \end{itemize}
+  \vspace{0.4cm}
+  \footnotesize
+  Fallback chain: \code{GPR \(\to\) XGBoost \(\to\) sklearn-GBR} --- if
+  sklearn's GPR is unavailable in an environment, the others kick in
+  (\code{test\_make\_estimator\_falls\_back\_to\_sklearn\_gbr}).
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{Demo}
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small]
+$ ./run.sh train
+[...]
+$ python -c "
+import json
+m = json.loads(open('models/metrics.json').read())
+for r in m:
+    print(f'{r[\"target\"]:42s}  R2_cv={r[\"r2_cv\"]:.4f}')
+"
+safety_factor_neck_min                       R2_cv=0.9999
+safety_factor_stem1_min                      R2_cv=0.9999
+safety_factor_stem2_min                      R2_cv=0.9997
+[...]
+\end{lstlisting}
+  \vspace{0.4cm}
+  Test suite: \alert{27 passed}, 96\% coverage. The dashboard reads
+  \file{models/} and runs all 10 models per predict call.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Questions}
+  \vfill
+  \begin{center}
+    \Large Thank you.\\[0.4cm]
+    \normalsize Questions?
+  \end{center}
+  \vfill
+  \scriptsize
+  \begin{itemize}
+    \item \file{src/train.py} (GroupKFold + GPR + XGB fallback)
+    \item \file{models/metrics.json} (live CV scores)
+    \item \file{tests/test\_train\_predict.py}
+    \item Development log: \file{docs/PROJECT\_NOTES.md} Sprints 3--4
+  \end{itemize}
+\end{frame}
+
+\end{document}

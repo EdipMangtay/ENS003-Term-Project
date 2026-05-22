@@ -1,0 +1,18 @@
+\frametitle{Demo}
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small]
+$ ./run.sh train
+[...]
+$ python -c "
+import json
+m = json.loads(open('models/metrics.json').read())
+for r in m:
+    print(f'{r[\"target\"]:42s}  R2_cv={r[\"r2_cv\"]:.4f}')
+"
+safety_factor_neck_min                       R2_cv=0.9999
+safety_factor_stem1_min                      R2_cv=0.9999
+safety_factor_stem2_min                      R2_cv=0.9997
+[...]
+\end{lstlisting}
+  \vspace{0.4cm}
+  Test sonucu: \alert{27 passed}, \%96 coverage --- dashboard \file{models/}'i okuyup
+  her predict'te 10 model üzerinden geçiyor.

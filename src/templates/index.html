@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hip Implant Safety Dashboard — Student Project</title>
+
+    <!-- Fonts and Icons -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,700&display=swap">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+    
+    <!-- Local Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<button id="sidebar-toggle">☰ Settings</button>
+
+<aside class="sidebar" id="sidebar">
+    <h3>Input Parameters</h3>
+
+    <div class="field">
+        <label>Mass: <span id="mass-display">70</span> kg</label>
+        <input type="range" id="mass" min="40" max="110" step="1" value="70">
+    </div>
+
+    <div class="field">
+        <label>K factor: <span id="k-display">2.5</span></label>
+        <input type="range" id="k" min="2.0" max="6.0" step="0.1" value="2.5">
+    </div>
+
+    <div class="field">
+        <label>Angle: <span id="angle-display">0</span>°</label>
+        <input type="range" id="angle" min="0" max="20" step="1" value="0">
+    </div>
+
+    <div class="activity-presets">
+        <button type="button" class="preset" data-k="2.5">Walking</button>
+        <button type="button" class="preset" data-k="3.5">Stairs</button>
+        <button type="button" class="preset" data-k="4.5">Running</button>
+    </div>
+
+    <hr>
+
+    <div class="material-panel">
+        <strong>Material: Ti-6Al-4V</strong><br>
+        Yield: {{ yield_mpa }} MPa
+    </div>
+</aside>
+
+<main>
+    <header class="title-block">
+        <div class="student-badge">ENS003 — Term Project</div>
+        <h1>Hip Implant Stress & Safety Dashboard</h1>
+        <p class="authors">
+            <strong>Ata Bulut</strong> (Comp. Eng.) &nbsp;·&nbsp; 
+            <strong>Recep Kamil Fırat</strong> (Comp. Eng.) &nbsp;·&nbsp; 
+            <strong>Ali Edip Mangtay</strong> (Soft. Eng.)
+        </p>
+        <p class="affiliation">
+            Istinye University — Faculty of Engineering and Natural Sciences<br>
+            <em>Digital Twins for Health Sciences</em> · Instructor: Şenol Pişkin
+        </p>
+    </header>
+
+    <div id="status" class="callout">
+        <strong>Status: <span id="status-text">{{ payload.status.text }}</span></strong><br>
+        <span id="status-msg">{{ payload.status.msg }}</span>
+    </div>
+
+    <section>
+        <h2>1. Loading Summary</h2>
+        <p id="loading-summary">
+            m = 70 kg, K = 2.5, θ = 0°, F = 1,717 N
+        </p>
+    </section>
+
+    <section>
+        <h2>2. Safety Factor Predictions</h2>
+        <div class="figure-row">
+            <div id="gauge-equivalent" class="plot"></div>
+            <div id="gauge-neck"       class="plot"></div>
+            <div id="gauge-stem1"      class="plot"></div>
+            <div id="gauge-stem2"      class="plot"></div>
+        </div>
+        <p class="caption">
+            Equivalent (Peak): <span id="sf-equivalent-pm"></span> | 
+            Neck: <span id="sf-neck-pm"></span> | 
+            STEM 1: <span id="sf-stem1-pm"></span> | 
+            STEM 2: <span id="sf-stem2-pm"></span>
+        </p>
+    </section>
+
+    <section>
+        <h2>3. Peak Stress Predictions</h2>
+        <p>
+            Max Von Mises: <strong id="stress-vm-pm"></strong> MPa<br>
+            Max Principal: <strong id="stress-p-pm"></strong> MPa<br>
+            Max Deformation: <strong id="deform"></strong>
+        </p>
+    </section>
+
+    <section>
+        <h2>4. Comparison with Training Data</h2>
+        <div id="comparison" class="plot"></div>
+    </section>
+
+    <section>
+        <h2>5. Model Performance</h2>
+        <table class="ref-table">
+            <thead>
+                <tr><th>Target</th><th>R² (Accuracy)</th><th>Avg Error</th></tr>
+            </thead>
+            <tbody>
+                {% for r in metrics_records %}
+                <tr>
+                    <td>{{ r.target.replace("_", " ") }}</td>
+                    <td>{{ "%.3f"|format(r.r2_cv) }}</td>
+                    <td>{{ "%.4f"|format(r.mae_cv) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2>6. Raw FEA Data</h2>
+        <div class="table-wrap table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Case</th>
+                        <th>Mass</th>
+                        <th>K</th>
+                        <th>Angle</th>
+                        <th>Stress (MPa)</th>
+                        <th>SF Neck</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in training_rows %}
+                    <tr>
+                        <td>{{ r.case_id }}</td>
+                        <td>{{ r.patient_mass_kg }}</td>
+                        <td>{{ r.K_factor }}</td>
+                        <td>{{ r.force_angle_deg }}</td>
+                        <td>{{ (r.max_equivalent_vonmises_stress_Pa / 1e6) | round }}</td>
+                        <td>{{ "%.2f"|format(r.safety_factor_neck_min) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <footer>
+        <p>
+            This dashboard was developed as a term project for the **ENS003 Digital Twins** course at Istinye University. 
+            The Gaussian Process Regression model was trained on data provided by the Mechanical Engineering team.
+        </p>
+    </footer>
+</main>
+
+<script>
+    // These values are passed from Python to JavaScript once when the page loads
+    const INITIAL_PAYLOAD = {{ payload | tojson }};
+</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+
+</body>
+</html>

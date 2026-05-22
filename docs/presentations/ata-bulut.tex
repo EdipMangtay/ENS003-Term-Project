@@ -1,0 +1,210 @@
+\input{_preamble.tex}
+
+\newcommand{\courseHeader}{ENS003 --- Digital Twins for Health Sciences}
+\newcommand{\courseSubheader}{İstinye Üniversitesi · Müh. ve Doğa Bilimleri Fakültesi}
+\newcommand{\instructor}{Eğitmen: Prof. Dr. Şenol Pişkin}
+\newcommand{\projectTitle}{Ti-6Al-4V Çimentosuz Kalça İmplantı için Surrogate ML Modeli}
+
+\title{Veri Boru Hattı ve Özellik Mühendisliği}
+\subtitle{\projectTitle}
+\author{Ata Bulut \\ \small Bilgisayar Mühendisliği · 220901582}
+\date{Mayıs 2026 \\ \scriptsize \courseHeader{} · \instructor}
+
+\begin{document}
+
+\maketitle
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Bu sunumda}
+  \begin{itemize}
+    \item Mekanik mühendisliği ekibinden gelen ham FEA verisini ML için
+          tüketilebilir hale getirme süreci
+    \item ANSYS export'undan \file{data/dataset.csv}'ye giden boru hattı
+    \item \file{convert.py} ve \file{preprocess.py} mimarisi
+    \item Karşılaştığım hatalar, test ve kapsam (\textit{coverage})
+  \end{itemize}
+  \vspace{0.4cm}
+  \begin{block}{Sorumluluğum (yazılım ekibi)}
+    Veri dönüştürme, şema tasarımı, feature engineering ve CV
+    gruplandırma yardımcısı.
+  \end{block}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Veri kaynağı}
+  ANSYS Workbench parametric Design Point sweep:
+  \begin{itemize}
+    \item \(m \in \{50, 60, 70, 80, 90, 100\}\unit{kg}\) (6 değer)
+    \item \(K \in \{2, 2.5, \ldots, 6\}\) (9 değer, vücut ağırlığı katsayısı)
+    \item \(\theta \in \{0°, 10°, 20°\}\) (3 değer, kuvvet eğim açısı)
+  \end{itemize}
+  \vspace{0.3cm}
+  \begin{center}
+    \(\boldsymbol{6 \times 9 \times 3 = 162}\) benzersiz tasarım noktası
+  \end{center}
+  \vspace{0.3cm}
+  ANSYS bunlardan 108'ini proje güncellemesinden sonra yeniden çalıştırmış
+  --- toplam 270 satır. Tekrarlar 5--6. ondalıkta farklı (çözücü
+  mikro-gürültüsü).
+
+  \vspace{0.3cm}
+  \begin{block}{Karar: 270 satırın hepsini tut}
+    \footnotesize
+    Her ANSYS çözümü pahalı; atmak savurganlık. Train-test leakage'ı
+    önlemek için cross-validation \alert{\(\boldsymbol{(m, K, \theta)}\)
+    üzerinden gruplandı} --- tekrarlar her zaman aynı fold'da.
+  \end{block}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{\file{convert.py} mimari}
+\begin{lstlisting}
+def convert(source=None, out=None):
+    src = source if source else _pick_source(prefer_csv=True)
+    if src.suffix.lower() == ".csv":
+        raw = _read_csv(src)          # 7 sat. preamble atla
+    else:
+        raw = _read_xlsx(src)         # "Units" satirini drop
+
+    df = _normalize_columns(raw)      # P1 ya da "P1 - Force..."
+    df = pd.to_numeric(...).dropna()
+    df = _convert_units(df)           # MPa -> Pa, mm -> m
+    df = _attach_constants(df, ModelConstants())
+    df["case_id"] = [f"DP_{i+1:03d}" for i in range(len(df))]
+    df.to_csv(out, index=False)
+    return df
+\end{lstlisting}
+
+  \begin{itemize}\small
+    \item İki kaynak formatı: CSV (preamble + bare \code{P1}) ve XLSX
+          (Units satırı + \code{P1 - Force X Component})
+    \item Tek regex \verb|^\s*(P\d+)\b| iki formatı da yakalar
+    \item Birim normalizasyonu: MPa\(\to\)Pa, mm\(\to\)m
+    \item ANSYS sabitleri (mesh, malzeme) \code{ModelConstants}'tan satırlara
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{\file{preprocess.py}: özellik mühendisliği}
+\begin{lstlisting}
+INPUT_FEATURES = ["patient_mass_kg", "K_factor", "force_angle_deg"]
+DERIVED_FEATURES = ["force_x_N", "force_z_N", "force_magnitude_N"]
+
+def add_features(df):
+    out = df.copy()
+    rad = np.deg2rad(out["force_angle_deg"])
+    Fmag = out["patient_mass_kg"] * 9.81 * out["K_factor"]
+    out["force_x_N"] = Fmag * np.cos(rad)
+    out["force_z_N"] = Fmag * np.sin(rad)
+    out["force_magnitude_N"] = Fmag
+    return out
+\end{lstlisting}
+
+  \vspace{0.2cm}
+  \begin{itemize}\small
+    \item Model 3 bağımsız girdi görüyor: \(m, K, \theta\)
+    \item \(F_x, F_z, |F|\) bu üçünden \textbf{analitik} türev --- predict ile
+          train aynı formüle bağlı, drift yok
+    \item \(F_y\) ve \code{fixed\_support\_n\_faces} tüm satırlarda sabit
+          (varyans = 0) \(\Rightarrow\) girdiden düşürüldü
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{CV gruplandırma --- \code{grid\_groups()}}
+\begin{lstlisting}
+GRID_KEYS = ("patient_mass_kg", "K_factor", "force_angle_deg")
+
+def grid_groups(df):
+    """Return a group ID per row, equal for ANSYS re-runs."""
+    grouped = df[list(GRID_KEYS)].astype(str).agg("|".join, axis=1)
+    return grouped.to_numpy()
+\end{lstlisting}
+
+  \vspace{0.4cm}
+  \textbf{Recep'in \code{train.py}'da kullanımı:}
+  \begin{itemize}\small
+    \item \code{GroupKFold(n\_splits=5).split(X, y, groups=grid\_groups(df))}
+    \item Aynı \((m, K, \theta)\) üçlüsü her zaman aynı fold'da
+    \item Olmasaydı: \(R^2\) yapay olarak \(\approx 1.0\)'a şişerdi (leakage)
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Yol boyu karşılaştığım hatalar}
+  \begin{itemize}
+    \item \textbf{XLSX'in ``Units'' satırı:} İlk veri satırı aslında birim
+          etiketi (\code{kg, MPa, mm, ...}) --- pandas tüm sütunu
+          \code{object} dtype yaptı, sayısal işlemler çöktü.
+          \alert{Çözüm:} satırı drop + \code{pd.to\_numeric(errors=`coerce')}
+    \item \textbf{İki başlık formatı:} CSV'de \code{P1}, XLSX'te
+          \code{P1 - Force X Component}. \alert{Çözüm:} regex
+          \verb|^\s*(P\d+)\b| ile her ikisini yakalayan tek parser.
+    \item \textbf{\code{out=OUT\_CSV} varsayılan argümanı:} Python'da
+          fonksiyon tanım zamanında bağlandığı için test'lerde
+          \code{monkeypatch} işe yaramıyordu \(\Rightarrow\) \code{data/dataset.csv}
+          gerçek dosyaya yazıyordu. \alert{Çözüm:} \code{out=None} +
+          runtime resolve.
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Test \& kapsam}
+  \begin{center}
+    \begin{tabular}{lrr}
+      \toprule
+      Dosya & İfade sayısı & Kapsam \\
+      \midrule
+      \file{src/convert.py}      & 115 & 90\% \\
+      \file{src/preprocess.py}   & 27  & 100\% \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+
+  \vspace{0.5cm}
+  \textbf{Önemli test senaryoları:}
+  \begin{itemize}\small
+    \item Immutability: \code{add\_features()} input DataFrame'i mutate etmiyor
+    \item Trigonometri: \(F_x^2 + F_z^2 = |F|^2\) her satır için
+    \item Eski \(F_x\)/\(F_z\) sütunları üzerine yazılıyor (predict-time tutarlılık)
+    \item ANSYS re-run'ları aynı \code{grid\_groups()} ID'sini paylaşıyor
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{Demo}
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small]
+$ ./run.sh convert
+wrote 270 rows -> data/dataset.csv
+total rows kept: 270 (unique grid points: 162)
+
+$ ./run.sh check | head -6
+rows=270  columns=30
+unique grid points: 162
+non-null target counts:
+  safety_factor_neck_min: 270 / 270
+  ...
+\end{lstlisting}
+
+  \vspace{0.4cm}
+  Çıktı, Recep'in \file{train.py}'ına doğrudan beslenebilir durumda.
+  Şema, modelleme tarafıyla \alert{tek bir doğruluk kaynağı}'nda buluşuyor.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Sorular}
+  \vfill
+  \begin{center}
+    \Large Teşekkürler.\\[0.4cm]
+    \normalsize Sorular?
+  \end{center}
+  \vfill
+  \scriptsize
+  \begin{itemize}
+    \item \file{src/convert.py}, \file{src/preprocess.py}
+    \item \file{tests/test\_preprocess.py} (12 test, 100\% coverage)
+    \item Geliştirme logu: \file{docs/PROJECT\_NOTES.md} Sprint 1--2
+  \end{itemize}
+\end{frame}
+
+\end{document}

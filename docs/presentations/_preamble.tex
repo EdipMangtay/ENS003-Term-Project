@@ -1,0 +1,63 @@
+% Shared preamble for the three ENS003 software-team presentations.
+% Each presentation \input{}'s this file.
+
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+% Built-in Beamer theme so the deck compiles on any TeX Live / MacTeX
+% install without external packages. Customise colours below.
+\usetheme{Boadilla}
+\usecolortheme{seahorse}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\definecolor{ink}{HTML}{1A1A1A}
+\definecolor{accentred}{HTML}{A02828}
+\definecolor{accentgreen}{HTML}{2C662C}
+\definecolor{codebg}{HTML}{F7F5EE}
+\definecolor{rulegrey}{HTML}{888888}
+
+\setbeamercolor{normal text}{fg=ink}
+\setbeamercolor{frametitle}{bg=ink, fg=white}
+\setbeamercolor{title}{fg=ink}
+\setbeamercolor{author}{fg=ink}
+\setbeamercolor{date}{fg=rulegrey}
+\setbeamercolor{block title}{bg=ink, fg=white}
+\setbeamercolor{block body}{bg=codebg, fg=ink}
+\setbeamercolor{alerted text}{fg=accentred}
+\setbeamercolor{structure}{fg=ink}
+\setbeamerfont{frametitle}{series=\bfseries}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{codebg},
+  language=Python,
+  keywordstyle=\color{accentred},
+  stringstyle=\color{accentgreen},
+  commentstyle=\color{rulegrey}\itshape,
+  breaklines=true,
+  numbers=none,
+  showstringspaces=false,
+  frame=single,
+  framerule=0pt,
+  framesep=6pt,
+  xleftmargin=0pt,
+  xrightmargin=0pt
+}
+
+% Convenience commands
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\file}[1]{\textcolor{accentred}{\texttt{\small #1}}}
+\newcommand{\unit}[1]{\,\mathrm{#1}}
+
+% Title-slide metadata is set per-deck (so the same preamble can power
+% both Turkish and English versions of each talk).

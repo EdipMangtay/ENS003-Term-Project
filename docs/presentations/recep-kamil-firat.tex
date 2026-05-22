@@ -1,0 +1,255 @@
+\input{_preamble.tex}
+
+\newcommand{\courseHeader}{ENS003 --- Digital Twins for Health Sciences}
+\newcommand{\courseSubheader}{İstinye Üniversitesi · Müh. ve Doğa Bilimleri Fakültesi}
+\newcommand{\instructor}{Eğitmen: Prof. Dr. Şenol Pişkin}
+\newcommand{\projectTitle}{Ti-6Al-4V Çimentosuz Kalça İmplantı için Surrogate ML Modeli}
+
+\title{Surrogate Model: GPR ve 5-fold Grouped CV}
+\subtitle{\projectTitle}
+\author{Recep Kamil Fırat \\ \small Bilgisayar Mühendisliği · 2309011079}
+\date{Mayıs 2026 \\ \scriptsize \courseHeader{} · \instructor}
+
+\begin{document}
+
+\maketitle
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Bu sunumda}
+  \begin{itemize}
+    \item Surrogate'in amacı: FEA çıktısını milisaniyelere taşımak
+    \item Neden Gaussian Process Regression (GPR), neden XGBoost değil
+    \item Cross-validation stratejisi: \textit{neden} 5-fold grouped
+    \item 10 hedef için ölçtüğümüz \(R^2_{\text{CV}}\)
+    \item Limitler ve dürüst raporlama
+  \end{itemize}
+  \vspace{0.4cm}
+  \begin{block}{Sorumluluğum (yazılım ekibi)}
+    Surrogate model seçimi, hyperparameter ayarı, cross-validation,
+    \file{src/train.py} ve \file{models/}.
+  \end{block}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Problem}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.55\textwidth}
+    Mekanik ekibi ANSYS Static Structural ile her senaryoyu çözüyor:
+    \begin{itemize}\small
+      \item Tek bir çözüm \(\sim\) 5-10 dakika
+      \item Bir kütle/K/açı kombinasyonunu kapsıyor
+      \item İnteraktif dashboard için \alert{uygun değil}
+    \end{itemize}
+    \vspace{0.4cm}
+    Surrogate hedefi:
+    \begin{itemize}\small
+      \item Aynı girdiler için \(\sim\) 1 ms yanıt
+      \item Eğitim grid'inin içinde \alert{güvenilir interpolasyon}
+      \item Posterior \(\pm\sigma\) (kalibre belirsizlik)
+    \end{itemize}
+    \column{0.45\textwidth}
+    \begin{center}
+      \footnotesize
+      \begin{tabular}{lr}
+        \toprule
+        FEA çözümü & 5--10 dk \\
+        Surrogate predict & \(\approx\) 1 ms \\
+        Hız çarpanı & \(\sim 10^5\) \\
+        \bottomrule
+      \end{tabular}
+    \end{center}
+  \end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Model seçimi --- 270 satır, hedef \(\mathrm{SF}_{\text{neck}}\)}
+  Aynı veri seti üzerinde 5-fold grouped CV:
+  \begin{center}\footnotesize
+    \begin{tabular}{lrrl}
+      \toprule
+      Model & \(R^2_{\text{CV}}\) & MAE\(_{\text{CV}}\) & Benzersiz çıktı / 51 \\
+      \midrule
+      XGBoost (depth=1, stumps) & 0.986 & 0.032 & 18 \\
+      XGBoost (depth=3)         & 0.988 & 0.024 & 27 \\
+      Kernel Ridge (RBF)        & -0.005 & 0.369 & 5 \\
+      \alert{\textbf{Gaussian Process (RBF + white)}} & \alert{\textbf{0.9999}} & \alert{\textbf{0.00077}} & \alert{\textbf{51}} \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+
+  \vspace{0.4cm}
+  \textbf{Pürüzsüzlük testi:} \(K=2.5, \theta=0°\) sabit, kütle slider'ı
+  51 örnekleme noktası boyunca taranıyor. GPR her noktada farklı bir
+  değer üretiyor (sürekli eğri); ağaç tabanlı modeller az sayıda
+  farklı değere düşüp \alert{basamaklı} fonksiyon veriyor.
+
+  \vspace{0.3cm}
+  \footnotesize
+  162 benzersiz noktada XGBoost yaprak başına \(\sim 6\) örnek görüyor;
+  bu da step-function davranışını üretiyor.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{GPR mimari}
+\begin{lstlisting}
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
+
+kernel = (
+    ConstantKernel(1.0, (1e-3, 1e3))
+    * RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e3))
+    + WhiteKernel(noise_level=1e-3, noise_level_bounds=(1e-6, 1e-1))
+)
+
+base = GaussianProcessRegressor(
+    kernel=kernel, normalize_y=True,
+    n_restarts_optimizer=5, random_state=42, alpha=1e-8,
+)
+
+model = TransformedTargetRegressor(
+    regressor=base, transformer=StandardScaler(),
+)
+\end{lstlisting}
+
+  \begin{itemize}\small
+    \item Kernel hiperparametreleri marginal-likelihood ile fit
+    \item \code{normalize\_y} \(+\) \code{TransformedTargetRegressor} \(\Rightarrow\) hedef ölçeği bağımsız
+    \item Posterior kapalı form \(\Rightarrow\) her tahminde \(\sigma\) bedava
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{CV stratejisi: \textit{neden} grouped?}
+  \textbf{Problem:} 270 satırın 108'i ANSYS re-run'ı --- aynı
+  \((m, K, \theta)\) noktasında ufak sayısal farklarla tekrar eden satırlar.
+
+  \vspace{0.3cm}
+  \begin{itemize}
+    \item Standart \code{KFold}\,/\,\code{LOO} kullanırsak: aynı grid noktası
+          hem train hem test setine düşebilir \(\Rightarrow\) \alert{leakage}
+    \item Görünür sonuç: \(R^2\) yapay olarak \(\approx 1.0\)'a çıkar
+    \item Gerçek out-of-sample performansını ölçemeyiz
+  \end{itemize}
+
+  \vspace{0.4cm}
+  \textbf{Çözüm:} \code{GroupKFold(n\_splits=5)}, group ID Ata'nın
+  \code{grid\_groups()} fonksiyonundan geliyor:
+  \begin{center}
+    \texttt{"\,m\,|\,K\,|\,theta\,"} \quad \(\Rightarrow\) \quad re-run'lar aynı fold'da
+  \end{center}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{Eğitim döngüsü}
+\begin{lstlisting}
+from sklearn.model_selection import GroupKFold
+
+def _grouped_cv_eval(X, y, groups, n_splits):
+    preds = np.full(len(y), np.nan)
+    for tr, te in GroupKFold(n_splits).split(X, y, groups=groups):
+        model, _ = _make_estimator()
+        model.fit(X.iloc[tr], y.iloc[tr])
+        preds[te] = model.predict(X.iloc[te])
+    return {
+        "r2_cv": r2_score(y, preds),
+        "mae_cv": mean_absolute_error(y, preds),
+    }
+\end{lstlisting}
+
+  \vspace{0.3cm}
+  Her hedef için:
+  \begin{enumerate}\small
+    \item 5 fold üzerinde out-of-fold tahmin
+    \item Tüm satırlar üzerinde final fit \(\Rightarrow\) \file{models/<target>.joblib}
+    \item Metrikler \file{models/metrics.json}'a yazılır
+  \end{enumerate}
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{CV sonuçları --- 10 hedef}
+  \begin{center}\footnotesize
+    \begin{tabular}{lrr}
+      \toprule
+      Hedef & \(R^2_{\text{CV}}\) & MAE\(_{\text{CV}}\) \\
+      \midrule
+      safety\_factor\_neck\_min            & 0.9999 & 7.7e-4 \\
+      safety\_factor\_stem1\_min           & 0.9999 & 8.3e-4 \\
+      safety\_factor\_stem2\_min           & 0.9997 & 4.4e-3 \\
+      max\_equivalent\_vonmises\_stress\_Pa & 0.9998 & 0.53 MPa \\
+      avg\_equivalent\_vonmises\_stress\_Pa & 0.9998 & 10.6 kPa \\
+      \alert{min\_equivalent\_vonmises\_stress\_Pa} & \alert{0.034} & \alert{(FEA gürültü tabanı)} \\
+      max\_principal\_stress\_Pa            & 0.9998 & 0.57 MPa \\
+      avg\_principal\_stress\_Pa            & 0.9998 & 5.0 kPa \\
+      min\_principal\_stress\_Pa            & 0.9998 & 0.15 MPa \\
+      max\_total\_deformation\_m            & 0.9998 & \(7.4 \times 10^{-7}\) m \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+
+  \vspace{0.4cm}
+  9/10 hedef \(R^2 > 0.999\); \code{min\_equivalent} hedefi \(\sim 10^{-10}\)
+  mertebesinde FEA çözücüsünün gürültü tabanı --- dürüstçe raporlanıyor,
+  dashboard'da gizli.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Dürüst limitler}
+  \begin{itemize}
+    \item \textbf{İnterpolasyon güvenilir, ekstrapolasyon değil.}
+          \(m < 50\unit{kg}\), \(K > 6\), \(\theta > 20°\) için tahminler
+          dikkatle kullanılmalı.
+    \item \textbf{18-yüz fixed support sabit.} Farklı fiksasyon
+          desenleri modellenmiyor; yeni FEA grid gerekir.
+    \item \textbf{\(F_y = 0\) tüm satırlarda.} Düzlem dışı yükleme yok;
+          gerçek aktivite çoğunlukla düzlem-içi olduğundan kabul edilebilir
+          ama tam değil.
+    \item \textbf{Kernel hiperparametreleri bazı hedeflerde sınıra yakın
+          (ConvergenceWarning).} \(R^2\)'de marjinal etki, ileride bound'lar
+          genişletilebilir.
+  \end{itemize}
+  \vspace{0.4cm}
+  \footnotesize
+  Fallback zinciri: \code{GPR \(\to\) XGBoost \(\to\) sklearn-GBR} ---
+  sklearn'in GPR'si bir ortamda yoksa diğerleri devreye girer
+  (\code{test\_make\_estimator\_falls\_back\_to\_sklearn\_gbr}).
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}[fragile]{Demo}
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small]
+$ ./run.sh train
+[...]
+$ python -c "
+import json
+m = json.loads(open('models/metrics.json').read())
+for r in m:
+    print(f'{r[\"target\"]:42s}  R2_cv={r[\"r2_cv\"]:.4f}')
+"
+safety_factor_neck_min                       R2_cv=0.9999
+safety_factor_stem1_min                      R2_cv=0.9999
+safety_factor_stem2_min                      R2_cv=0.9997
+[...]
+\end{lstlisting}
+  \vspace{0.4cm}
+  Test sonucu: \alert{27 passed}, \%96 coverage --- dashboard \file{models/}'i okuyup
+  her predict'te 10 model üzerinden geçiyor.
+\end{frame}
+
+% ---------------------------------------------------------------------------
+\begin{frame}{Sorular}
+  \vfill
+  \begin{center}
+    \Large Teşekkürler.\\[0.4cm]
+    \normalsize Sorular?
+  \end{center}
+  \vfill
+  \scriptsize
+  \begin{itemize}
+    \item \file{src/train.py} (GroupKFold + GPR + XGB fallback)
+    \item \file{models/metrics.json} (canlı CV skorları)
+    \item \file{tests/test\_train\_predict.py}
+    \item Geliştirme logu: \file{docs/PROJECT\_NOTES.md} Sprint 3--4
+  \end{itemize}
+\end{frame}
+
+\end{document}

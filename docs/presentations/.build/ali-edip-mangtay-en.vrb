@@ -1,0 +1,18 @@
+\frametitle{CLI + integration}
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small]
+$ ./run.sh predict --mass 70 --k 2.5 --angle 0
+{
+  "safety_factor_neck_min": 1.553,
+  "safety_factor_stem1_min": 1.662,
+  "safety_factor_stem2_min": 5.711,
+  "max_equivalent_vonmises_stress_Pa": 532000000.0,
+  ...
+}
+
+$ ./run.sh predict --mass 80 --activity stair_climbing
+# Snaps K to the preset, then predicts.
+\end{lstlisting}
+
+  \vspace{0.4cm}
+  Both the dashboard and the CLI call the same \code{predict()} function.
+  \code{preprocess.add\_features()} is the \alert{single source of truth}.

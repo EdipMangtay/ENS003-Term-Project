@@ -1,0 +1,556 @@
+/* ENS003 Hip-Implant Surrogate — LaTeX-styled responsive layout. */
+
+:root {
+    --ink: #1a1a1a;
+    --muted: #555;
+    --muted-2: #6f6f6f;
+    --rule: #1a1a1a;
+    --soft-rule: #d8d8d8;
+    --accent-red: #a02828;
+    --accent-amber: #c98a00;
+    --accent-green: #2c662c;
+    --serif: "STIX Two Text", "Latin Modern Roman", "Computer Modern Serif",
+             Georgia, "Times New Roman", serif;
+    --bg: #f1ede4;
+    --paper: #ffffff;
+    --sidebar: #faf7f0;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--serif);
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.6;
+    font-size: 17px;
+}
+
+body {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-areas: "sidebar main";
+    min-height: 100vh;
+}
+
+/* -------------------------------------------------- Sidebar */
+.sidebar {
+    grid-area: sidebar;
+    background: var(--sidebar);
+    border-right: 1px solid var(--soft-rule);
+    padding: 2rem 1.4rem;
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    overflow-y: auto;
+}
+
+.sidebar h3 {
+    margin: 0 0 1.2rem;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.sidebar hr {
+    border: 0;
+    border-top: 1px solid var(--soft-rule);
+    margin: 1.4rem 0;
+}
+
+.field {
+    display: block;
+    margin-bottom: 1.3rem;
+    font-size: 0.95rem;
+}
+
+.field-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.4rem;
+}
+
+.field-value {
+    font-variant-numeric: tabular-nums;
+    color: var(--accent-red);
+    font-weight: 600;
+    font-size: 0.92rem;
+}
+
+.sidebar input[type=range] {
+    width: 100%;
+    accent-color: var(--accent-red);
+    cursor: pointer;
+}
+
+.sidebar select {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    font-family: var(--serif);
+    font-size: 0.95rem;
+    background: white;
+    border: 1px solid var(--soft-rule);
+    border-radius: 3px;
+}
+
+.activity-presets {
+    margin-top: 0.3rem;
+}
+
+.activity-presets .preset-label {
+    display: block;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 0.45rem;
+}
+
+.preset-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.4rem;
+}
+
+.preset {
+    font-family: var(--serif);
+    font-size: 0.78rem;
+    line-height: 1.25;
+    padding: 0.4rem 0.3rem;
+    background: white;
+    color: var(--ink);
+    border: 1px solid var(--soft-rule);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.preset:hover {
+    border-color: var(--accent-red);
+    background: #fcf6f3;
+}
+
+.preset small {
+    display: inline-block;
+    color: var(--muted);
+    font-size: 0.72rem;
+    margin-top: 0.15rem;
+}
+
+.material-panel {
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--muted);
+}
+
+.material-panel strong {
+    color: var(--ink);
+    font-weight: 700;
+}
+
+/* -------------------------------------------------- Main column */
+main {
+    grid-area: main;
+    padding: 3.4rem 4rem 4.5rem;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0;
+    background: var(--paper);
+    box-shadow: 0 0 22px rgba(0, 0, 0, 0.05);
+    min-height: 100vh;
+}
+
+/* Ensure the layout feels balanced on very wide screens */
+@media (min-width: 1600px) {
+    body {
+        justify-content: center;
+        background: #e8e4d8;
+    }
+}
+
+/* Title block. */
+.title-block {
+    text-align: left;
+    margin-bottom: 2.5rem;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 1rem;
+}
+
+.student-badge {
+    display: inline-block;
+    background: var(--ink);
+    color: white;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.8rem;
+}
+
+.authors {
+    font-size: 1rem;
+    margin: 0.5rem 0;
+}
+
+.affiliation {
+    font-size: 0.9rem;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.title-block h1 {
+    font-size: 1.85rem;
+    font-weight: 600;
+    line-height: 1.28;
+    margin: 0 0 0.55rem;
+}
+
+.title-block .authors {
+    font-size: 1.05rem;
+    margin: 0.1rem 0;
+}
+
+.title-block .affiliation {
+    font-size: 0.92rem;
+    color: var(--muted);
+    margin: 0.05rem 0;
+    line-height: 1.35;
+}
+
+.title-block .date {
+    font-size: 0.92rem;
+    color: var(--muted);
+    margin-top: 0.7rem;
+}
+
+/* Abstract. */
+.abstract {
+    margin: 0 1.5rem 1.7rem;
+}
+
+.abstract h2 {
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 0.4rem;
+}
+
+.abstract p {
+    text-align: justify;
+    margin: 0;
+    font-size: 0.96rem;
+    hyphens: auto;
+}
+
+/* Sections. */
+main section { margin-bottom: 0.8rem; }
+
+main h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 1.9rem 0 0.7rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 0.4px solid var(--soft-rule);
+}
+
+main p {
+    text-align: justify;
+    hyphens: auto;
+    margin: 0.6rem 0;
+}
+
+p.equation {
+    text-align: center;
+    margin: 1.0rem 0;
+}
+
+p.single-metric {
+    margin-top: 1.2rem;
+    text-align: left;
+    font-size: 1.0rem;
+}
+
+p.single-metric strong {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Status callout. */
+.callout {
+    border: 1px solid var(--soft-rule);
+    border-left-width: 4px;
+    padding: 0.75rem 1rem;
+    background: #fcfbf7;
+    margin: 1.2rem 0 1.6rem;
+    font-size: 1.0rem;
+}
+
+/* Plotly figures. */
+.figure-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.plot {
+    width: 100%;
+    background: #fdfdfd;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}
+
+.table-scroll {
+    max-height: 460px;
+    overflow-y: auto;
+    border-top: 1.6px solid var(--rule);
+    border-bottom: 1.6px solid var(--rule);
+}
+
+.table-scroll .data-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--paper);
+    z-index: 1;
+}
+
+.table-scroll .data-table thead {
+    border-top: none;
+}
+
+.table-scroll .data-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.plot {
+    width: 100%;
+    margin: 0.4rem 0;
+}
+
+.plot-tall { min-height: 340px; }
+
+.caption {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-align: center;
+    font-style: italic;
+    margin: -0.1rem 0 1.4rem;
+    line-height: 1.4;
+}
+
+/* Reference table (LaTeX booktabs feel). */
+.ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    margin: 0.4rem 0 0.5rem;
+}
+
+.ref-table th, .ref-table td {
+    text-align: left;
+    padding: 0.45rem 0.6rem;
+}
+
+.ref-table th {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ref-table thead {
+    border-top: 1.6px solid var(--rule);
+    border-bottom: 0.6px solid var(--rule);
+}
+
+.ref-table tbody tr:last-child {
+    border-bottom: 1.6px solid var(--rule);
+}
+
+.ref-table td:not(:first-child) {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Footnote (small print under a paragraph). */
+p.footnote {
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 1.5;
+    border-left: 2px solid var(--soft-rule);
+    padding: 0.1rem 0 0.1rem 0.9rem;
+    margin: 0.8rem 0 1rem;
+}
+
+/* Full FEA training table (booktabs-feel). */
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    margin: 0.7rem 0 0.4rem;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.data-table th, .data-table td {
+    text-align: right;
+    padding: 0.4rem 0.7rem;
+    white-space: nowrap;
+}
+
+.data-table th:first-child,
+.data-table td:first-child,
+.data-table th:nth-child(3),
+.data-table td:nth-child(3) {
+    text-align: left;
+}
+
+.data-table thead {
+    border-top: 1.6px solid var(--rule);
+    border-bottom: 0.6px solid var(--rule);
+}
+
+.data-table thead th {
+    font-weight: 600;
+    font-size: 0.86rem;
+    color: var(--muted);
+    line-height: 1.25;
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+
+.data-table tbody tr:last-child {
+    border-bottom: 1.6px solid var(--rule);
+}
+
+.data-table tbody tr.highlight {
+    background: #fff6df;
+    box-shadow: inset 4px 0 0 var(--accent-amber);
+}
+
+.data-table tbody tr.highlight td:first-child {
+    font-weight: 700;
+    color: var(--accent-red);
+}
+
+/* Highlight the deployed surrogate row inside the model-benchmark table. */
+.ref-table tr.primary-row {
+    background: #f4f8f1;
+}
+
+.ref-table tr.primary-row td:first-child {
+    font-weight: 700;
+}
+
+/* Posterior ±σ annotations next to numbers. */
+.uncertainty {
+    font-size: 0.85em;
+    color: var(--muted);
+    font-style: italic;
+    margin-left: 0.4rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.figure-uncertainty {
+    text-align: center;
+    font-size: 0.84rem;
+    color: var(--muted);
+    margin: -0.8rem 0 0.4rem;
+    font-variant-numeric: tabular-nums;
+    font-style: italic;
+}
+
+footer {
+    margin-top: 3rem;
+    padding-top: 1.2rem;
+    border-top: 0.6px solid var(--soft-rule);
+    font-size: 0.88rem;
+    color: var(--muted-2);
+    line-height: 1.5;
+}
+
+footer p { text-align: justify; }
+
+/* Sidebar toggle (mobile only). */
+#sidebar-toggle {
+    display: none;
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 1100;
+    background: var(--accent-red);
+    color: white;
+    border: none;
+    padding: 0.6rem 1rem;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+@media (max-width: 900px) {
+    #sidebar-toggle { display: block; }
+}
+
+/* -------------------------------------------------- Plotly Tweaks */
+.js-plotly-plot .plotly .modebar {
+    display: none !important;
+}
+
+/* Ensure Plotly containers respect parent width for true responsiveness */
+.plot {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* ============================ Responsive breakpoints */
+
+/* Tablet: tighter spacing. */
+@media (max-width: 1180px) {
+    body { grid-template-columns: 270px minmax(0, 1fr); }
+    main { padding: 2.6rem 2rem 3rem; }
+}
+
+/* Mobile: collapse sidebar into a slide-in panel. */
+@media (max-width: 900px) {
+    body {
+        grid-template-columns: 1fr;
+        grid-template-areas: "main";
+    }
+
+    .sidebar {
+        position: fixed;
+        left: -320px;
+        width: 300px;
+        transition: left 0.3s ease;
+        z-index: 1000;
+        background: white;
+        box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+    }
+
+    .sidebar.open {
+        left: 0;
+    }
+
+    main {
+        padding: 4rem 1.5rem 2rem;
+    }
+
+    .figure-row {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,18 @@
+\frametitle{CLI + entegrasyon}
+\begin{lstlisting}[language=bash, basicstyle=\ttfamily\small]
+$ ./run.sh predict --mass 70 --k 2.5 --angle 0
+{
+  "safety_factor_neck_min": 1.553,
+  "safety_factor_stem1_min": 1.662,
+  "safety_factor_stem2_min": 5.711,
+  "max_equivalent_vonmises_stress_Pa": 532000000.0,
+  ...
+}
+
+$ ./run.sh predict --mass 80 --activity stair_climbing
+# K=3.5 preset'e snap'ler, sonra predict
+\end{lstlisting}
+
+  \vspace{0.4cm}
+  Hem dashboard hem CLI \alert{aynı} \code{predict()} fonksiyonunu kullanıyor.
+  \code{preprocess.add\_features()} \(\Rightarrow\) tek doğruluk kaynağı.
