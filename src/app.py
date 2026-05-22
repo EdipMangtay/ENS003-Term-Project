@@ -106,19 +106,80 @@ def predict_all(mass, k, angle):
         "figures": figures
     }
 
+_PLOT_FONT = dict(family="DM Sans, system-ui, sans-serif", color="#94a3b8", size=11)
+_PLOT_MARGIN = dict(l=40, r=24, t=48, b=40)
+_AXIS = dict(gridcolor="rgba(148,163,184,0.12)", zerolinecolor="rgba(148,163,184,0.15)", tickfont=dict(color="#64748b"))
+
+
+def _gauge_color(value):
+    if value < 1.0:
+        return "#f87171"
+    if value < 1.5:
+        return "#fbbf24"
+    return "#34d399"
+
+
+def _pretty_label(name):
+    return name.replace("safety_factor_", "").replace("_", " ").title()
+
+
 def create_simple_gauge(label, value):
+    color = _gauge_color(value)
     fig = go.Figure(go.Indicator(
-        mode="gauge+number", value=value, title={'text': label.replace("_", " ")},
-        gauge={'axis': {'range': [0, 3]}, 'threshold': {'line': {'color': "red", 'width': 4}, 'value': 1.0}}
+        mode="gauge+number",
+        value=value,
+        number=dict(font=dict(size=28, color="#f1f5f9", family="Outfit, sans-serif")),
+        title=dict(text=_pretty_label(label), font=dict(size=12, color="#94a3b8")),
+        gauge=dict(
+            axis=dict(range=[0, 3], tickcolor="#64748b", tickwidth=1),
+            bar=dict(color=color, thickness=0.75),
+            bgcolor="rgba(22,30,42,0.8)",
+            borderwidth=0,
+            steps=[
+                dict(range=[0, 1], color="rgba(248,113,113,0.25)"),
+                dict(range=[1, 1.5], color="rgba(251,191,36,0.2)"),
+                dict(range=[1.5, 3], color="rgba(52,211,153,0.15)"),
+            ],
+            threshold=dict(line=dict(color="#f87171", width=3), value=1.0, thickness=0.85),
+        ),
     ))
-    fig.update_layout(height=200, margin=dict(l=10, r=10, t=40, b=10))
+    fig.update_layout(
+        height=220,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=_PLOT_FONT,
+        margin=dict(l=20, r=20, t=50, b=12),
+    )
     return fig.to_plotly_json()
+
 
 def create_simple_chart(df, mass, stress, k):
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df["patient_mass_kg"], y=df["max_equivalent_vonmises_stress_Pa"]/1e6, mode='markers', name='FEA Data'))
-    fig.add_trace(go.Scatter(x=[mass], y=[stress], mode='markers', marker=dict(color='red', size=12), name='Your Point'))
-    fig.update_layout(height=300, xaxis_title="Mass (kg)", yaxis_title="Stress (MPa)")
+    fig.add_trace(go.Scatter(
+        x=df["patient_mass_kg"],
+        y=df["max_equivalent_vonmises_stress_Pa"] / 1e6,
+        mode="markers",
+        name="FEA training",
+        marker=dict(size=7, color="rgba(148,163,184,0.45)", line=dict(width=0)),
+    ))
+    fig.add_trace(go.Scatter(
+        x=[mass],
+        y=[stress],
+        mode="markers",
+        name="Your prediction",
+        marker=dict(size=14, color="#22d3ee", line=dict(width=2, color="#f1f5f9")),
+    ))
+    fig.update_layout(
+        height=340,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=_PLOT_FONT,
+        margin=_PLOT_MARGIN,
+        xaxis=dict(title="Patient mass (kg)", **_AXIS),
+        yaxis=dict(title="Peak von Mises (MPa)", **_AXIS),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, font=dict(size=10)),
+        hovermode="closest",
+    )
     return fig.to_plotly_json()
 
 if __name__ == "__main__":
