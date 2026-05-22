@@ -19,6 +19,8 @@ DATA_FILE = ROOT / "data" / "dataset.csv"
 MODELS_FOLDER = ROOT / "models"
 
 def train():
+    MODELS_FOLDER.mkdir(parents=True, exist_ok=True)
+
     # 1. Load the data
     print("Loading data...")
     df = get_clean_data(DATA_FILE)
@@ -66,7 +68,6 @@ def train():
         })
 
     # 3. Save metrics for the UI
-    MODELS_FOLDER.mkdir(parents=True, exist_ok=True)
     with open(MODELS_FOLDER / "metrics.json", "w") as f:
         json.dump(metrics_list, f, indent=2)
     
