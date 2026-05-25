@@ -1,37 +1,72 @@
 [
   {
     "target": "safety_factor_equivalent_min",
-    "r2_cv": 0.999,
-    "mae_cv": 0.001
+    "status": "trained",
+    "n_rows": 270,
+    "n_unique_groups": 162,
+    "r2_cv": 0.9999958399853484,
+    "r2_cv_std": 2.479809356286181e-06,
+    "mae_cv": 0.00035862364845218157,
+    "kind": "gaussian_process"
   },
   {
     "target": "safety_factor_neck_min",
-    "r2_cv": 0.999,
-    "mae_cv": 0.001
+    "status": "trained",
+    "n_rows": 270,
+    "n_unique_groups": 162,
+    "r2_cv": 0.9999958398127633,
+    "r2_cv_std": 2.479717231943717e-06,
+    "mae_cv": 0.0003586427044596766,
+    "kind": "gaussian_process"
   },
   {
     "target": "safety_factor_stem1_min",
-    "r2_cv": 0.999,
-    "mae_cv": 0.001
+    "status": "trained",
+    "n_rows": 270,
+    "n_unique_groups": 162,
+    "r2_cv": 0.999995833520793,
+    "r2_cv_std": 2.4882677236061616e-06,
+    "mae_cv": 0.0003844426377862321,
+    "kind": "gaussian_process"
   },
   {
     "target": "safety_factor_stem2_min",
-    "r2_cv": 0.999,
-    "mae_cv": 0.001
+    "status": "trained",
+    "n_rows": 270,
+    "n_unique_groups": 162,
+    "r2_cv": 0.9999919719950718,
+    "r2_cv_std": 8.546092767219314e-06,
+    "mae_cv": 0.0012795065055723957,
+    "kind": "gaussian_process"
   },
   {
     "target": "max_equivalent_vonmises_stress_Pa",
-    "r2_cv": 0.999,
-    "mae_cv": 0.001
+    "status": "trained",
+    "n_rows": 270,
+    "n_unique_groups": 162,
+    "r2_cv": 0.9999999999903718,
+    "r2_cv_std": 3.1702454300108355e-12,
+    "mae_cv": 715.3901473835663,
+    "kind": "gaussian_process"
   },
   {
     "target": "max_principal_stress_Pa",
-    "r2_cv": 0.999,
-    "mae_cv": 0.001
+    "status": "trained",
+    "n_rows": 270,
+    "n_unique_groups": 162,
+    "r2_cv": 0.999999999988981,
+    "r2_cv_std": 4.092672198988522e-12,
+    "mae_cv": 820.0981579138173,
+    "kind": "gaussian_process"
   },
   {
     "target": "max_total_deformation_m",
-    "r2_cv": 0.999,
-    "mae_cv": 0.001
+    "status": "trained",
+    "n_rows": 270,
+    "n_unique_groups": 162,
+    "r2_cv": 0.9999999999885685,
+    "r2_cv_std": 4.3162442486712024e-12,
+    "mae_cv": 1.0875995032697716e-09,
+    "kind": "gaussian_process"
   }
 ]

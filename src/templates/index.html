@@ -24,12 +24,12 @@
 
     <div class="field">
         <label>Mass: <span id="mass-display">70</span> kg</label>
-        <input type="range" id="mass" min="40" max="110" step="1" value="70">
+        <input type="range" id="mass" min="50" max="100" step="1" value="70">
     </div>
 
     <div class="field">
-        <label>K factor: <span id="k-display">2.5</span></label>
-        <input type="range" id="k" min="2.0" max="6.0" step="0.1" value="2.5">
+        <label>K factor: <span id="k-display">3.0</span></label>
+        <input type="range" id="k" min="2.0" max="6.0" step="0.1" value="3.0">
     </div>
 
     <div class="field">
@@ -38,9 +38,9 @@
     </div>
 
     <div class="activity-presets">
-        <button type="button" class="preset" data-k="2.5">Walking</button>
-        <button type="button" class="preset" data-k="3.5">Stairs</button>
-        <button type="button" class="preset" data-k="4.5">Running</button>
+        <button type="button" class="preset" data-k="3.0">Walking</button>
+        <button type="button" class="preset" data-k="4.0">Stairs</button>
+        <button type="button" class="preset" data-k="5.0">Running</button>
     </div>
 
     <hr>
@@ -64,6 +64,7 @@
             Istinye University — Faculty of Engineering and Natural Sciences<br>
             <em>Digital Twins for Health Sciences</em> · Instructor: Şenol Pişkin
         </p>
+        <p class="affiliation"><em>FEA data:</em> A. Ürel, Ş. Abdulrazak, E. Günal (Mech. Eng.)</p>
     </header>
 
     <div id="status" class="callout">
@@ -73,9 +74,7 @@
 
     <section>
         <h2>1. Loading Summary</h2>
-        <p id="loading-summary">
-            m = 70 kg, K = 2.5, θ = 0°, F = 1,717 N
-        </p>
+        <p id="loading-summary"></p>
     </section>
 
     <section>
@@ -87,19 +86,19 @@
             <div id="gauge-stem2"      class="plot"></div>
         </div>
         <p class="caption">
-            Equivalent (Peak): <span id="sf-equivalent-pm"></span> | 
-            Neck: <span id="sf-neck-pm"></span> | 
-            STEM 1: <span id="sf-stem1-pm"></span> | 
-            STEM 2: <span id="sf-stem2-pm"></span>
+            Equivalent (Peak): <span id="sf-equivalent-pm"></span><span class="uncertainty" id="sf-equivalent-std"></span> | 
+            Neck: <span id="sf-neck-pm"></span><span class="uncertainty" id="sf-neck-std"></span> | 
+            STEM 1: <span id="sf-stem1-pm"></span><span class="uncertainty" id="sf-stem1-std"></span> | 
+            STEM 2: <span id="sf-stem2-pm"></span><span class="uncertainty" id="sf-stem2-std"></span>
         </p>
     </section>
 
     <section>
         <h2>3. Peak Stress Predictions</h2>
         <p>
-            Max Von Mises: <strong id="stress-vm-pm"></strong> MPa<br>
-            Max Principal: <strong id="stress-p-pm"></strong> MPa<br>
-            Max Deformation: <strong id="deform"></strong>
+            Max Von Mises: <strong id="stress-vm-pm"></strong><span class="uncertainty" id="stress-vm-std"></span> MPa<br>
+            Max Principal: <strong id="stress-p-pm"></strong><span class="uncertainty" id="stress-p-std"></span> MPa<br>
+            Max Deformation: <strong id="deform"></strong><span class="uncertainty" id="deform-std"></span>
         </p>
     </section>
 

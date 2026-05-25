@@ -6,12 +6,22 @@
 // Plotly configuration
 const plotConfig = { responsive: true, displayModeBar: false };
 
+// IDs of all Plotly containers (used by the resize listener)
+const PLOT_IDS = [
+    "gauge-equivalent",
+    "gauge-neck",
+    "gauge-stem1",
+    "gauge-stem2",
+    "comparison"
+];
+
 /**
  * Updates all the text and numbers on the page.
  */
 function updateText(data) {
     const input = data.input;
     const metrics = data.metrics;
+    const std = data.metrics_std;
     const status = data.status;
 
     // 1. Update status bar
@@ -21,7 +31,7 @@ function updateText(data) {
     statusDiv.style.borderLeftColor = status.color;
 
     // 2. Update Loading summary
-    document.getElementById("loading-summary").innerText = 
+    document.getElementById("loading-summary").innerText =
         `m = ${input.mass} kg, K = ${input.k}, θ = ${input.angle}°, F = ${Math.round(input.force_n)} N`;
 
     // 3. Update Sidebar displays
@@ -39,9 +49,43 @@ function updateText(data) {
     // Stresses (converted to MPa and rounded)
     document.getElementById("stress-vm-pm").innerText = Math.round(metrics.max_equivalent_vonmises_stress_Pa / 1e6);
     document.getElementById("stress-p-pm").innerText  = Math.round(metrics.max_principal_stress_Pa / 1e6);
-    
+
     // Deformation (converted to mm)
     document.getElementById("deform").innerText = (metrics.max_total_deformation_m * 1000).toFixed(3) + " mm";
+
+    // 5. ±σ uncertainty spans (optional chaining guards against missing stds)
+    _setStd("sf-equivalent-std", std?.safety_factor_equivalent_min, "sf");
+    _setStd("sf-neck-std",       std?.safety_factor_neck_min,       "sf");
+    _setStd("sf-stem1-std",      std?.safety_factor_stem1_min,      "sf");
+    _setStd("sf-stem2-std",      std?.safety_factor_stem2_min,      "sf");
+    _setStd("stress-vm-std",     std?.max_equivalent_vonmises_stress_Pa, "mpa");
+    _setStd("stress-p-std",      std?.max_principal_stress_Pa,          "mpa");
+    _setStd("deform-std",        std?.max_total_deformation_m,          "mm");
+}
+
+/**
+ * Writes a ±σ string into a span, formatted by kind.
+ * Clears the span when the value is falsy (0 or undefined).
+ * @param {string} id - DOM element id
+ * @param {number|undefined} val - raw std value in SI units
+ * @param {"sf"|"mpa"|"mm"} kind - controls formatting and unit conversion
+ */
+function _setStd(id, val, kind) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!val) {
+        el.innerText = "";
+        return;
+    }
+    let formatted;
+    if (kind === "sf") {
+        formatted = ` ± ${val.toFixed(3)}`;
+    } else if (kind === "mpa") {
+        formatted = ` ± ${Math.round(val / 1e6)} MPa`;
+    } else if (kind === "mm") {
+        formatted = ` ± ${(val * 1000).toFixed(4)} mm`;
+    }
+    el.innerText = formatted;
 }
 
 /**
@@ -90,6 +134,16 @@ document.querySelectorAll(".preset").forEach(button => {
 // Mobile sidebar toggle
 document.getElementById("sidebar-toggle").addEventListener("click", () => {
     document.getElementById("sidebar").classList.toggle("open");
+});
+
+// Resize all Plotly containers when the window is resized
+window.addEventListener("resize", () => {
+    PLOT_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el._fullLayout) {
+            Plotly.Plots.resize(el);
+        }
+    });
 });
 
 // Initial load

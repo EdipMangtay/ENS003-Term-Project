@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.coverage
+.coveragerc.local
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / tooling
+.vscode/
+.idea/
+.claude/
+CLAUDE_CONTEXT.md
+
+# Reports & generated docs (not committed — local academic artefacts)
+FINAL_REPORT_DRAFT.md
+Final_Project_Report.docx
+Final_Project_Report_With_Images.docx
+Direct_Conversion_Report.docx
+ENS003 Project Report Template.docx
+ENS003 Project Report.docx*.pdf
+convert_pdf.py
+
+# Large raw artefacts not needed for the trained pipeline
+screenshots/
