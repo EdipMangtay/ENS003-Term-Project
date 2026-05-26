@@ -3,149 +3,213 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hip Implant Safety Dashboard — Student Project</title>
+    <meta name="theme-color" content="#0b0f14">
+    <meta name="description" content="Ti-6Al-4V hip implant surrogate — real-time safety factor and stress predictions from GPR.">
+    <title>Hip Implant Digital Twin · ENS003</title>
 
-    <!-- Fonts and Icons -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400;0,700&display=swap">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-    
-    <!-- Plotly.js -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-    
-    <!-- Local Styles -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
-<button id="sidebar-toggle">☰ Settings</button>
+<div class="app-bg" aria-hidden="true"></div>
+
+<button type="button" id="sidebar-toggle" class="sidebar-toggle" aria-label="Open controls">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+</button>
+<div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
 
 <aside class="sidebar" id="sidebar">
-    <h3>Input Parameters</h3>
-
-    <div class="field">
-        <label>Mass: <span id="mass-display">70</span> kg</label>
-        <input type="range" id="mass" min="50" max="100" step="1" value="70">
+    <div class="sidebar-brand">
+        <div class="brand-icon">
+            <svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="14" stroke="currentColor" stroke-width="1.5" opacity=".35"/><path d="M10 22c2-6 4-10 6-10s4 4 6 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+            <span class="brand-label">Digital Twin</span>
+            <span class="brand-title">Load Simulator</span>
+        </div>
     </div>
 
-    <div class="field">
-        <label>K factor: <span id="k-display">3.0</span></label>
-        <input type="range" id="k" min="2.0" max="6.0" step="0.1" value="3.0">
+    <div class="control-group">
+        <div class="field">
+            <div class="field-head">
+                <label for="mass">Patient mass</label>
+                <span class="field-value"><span id="mass-display">70</span> kg</span>
+            </div>
+            <input type="range" id="mass" min="40" max="110" step="1" value="70" aria-valuemin="40" aria-valuemax="110">
+        </div>
+
+        <div class="field">
+            <div class="field-head">
+                <label for="k">Body-weight multiplier <span class="mono">K</span></label>
+                <span class="field-value" id="k-display">2.5</span>
+            </div>
+            <input type="range" id="k" min="2.0" max="6.0" step="0.1" value="2.5">
+        </div>
+
+        <div class="field">
+            <div class="field-head">
+                <label for="angle">Force tilt angle</label>
+                <span class="field-value"><span id="angle-display">0</span>°</span>
+            </div>
+            <input type="range" id="angle" min="0" max="20" step="1" value="0">
+        </div>
     </div>
 
-    <div class="field">
-        <label>Angle: <span id="angle-display">0</span>°</label>
-        <input type="range" id="angle" min="0" max="20" step="1" value="0">
+    <div class="preset-block">
+        <span class="preset-label">Activity presets</span>
+        <div class="preset-grid">
+            <button type="button" class="preset" data-k="2.5">
+                <span class="preset-name">Walking</span>
+                <span class="preset-k">K = 2.5</span>
+            </button>
+            <button type="button" class="preset" data-k="3.5">
+                <span class="preset-name">Stairs</span>
+                <span class="preset-k">K = 3.5</span>
+            </button>
+            <button type="button" class="preset" data-k="4.5">
+                <span class="preset-name">Running</span>
+                <span class="preset-k">K = 4.5</span>
+            </button>
+        </div>
     </div>
 
-    <div class="activity-presets">
-        <button type="button" class="preset" data-k="3.0">Walking</button>
-        <button type="button" class="preset" data-k="4.0">Stairs</button>
-        <button type="button" class="preset" data-k="5.0">Running</button>
-    </div>
-
-    <hr>
-
-    <div class="material-panel">
-        <strong>Material: Ti-6Al-4V</strong><br>
-        Yield: {{ yield_mpa }} MPa
+    <div class="material-card">
+        <div class="material-chip">Ti-6Al-4V · Annealed</div>
+        <dl class="material-stats">
+            <div><dt>Yield strength</dt><dd>{{ yield_mpa }} MPa</dd></div>
+            <div><dt>Model</dt><dd>GPR surrogate</dd></div>
+        </dl>
     </div>
 </aside>
 
-<main>
-    <header class="title-block">
-        <div class="student-badge">ENS003 — Term Project</div>
-        <h1>Hip Implant Stress & Safety Dashboard</h1>
-        <p class="authors">
-            <strong>Ata Bulut</strong> (Comp. Eng.) &nbsp;·&nbsp; 
-            <strong>Recep Kamil Fırat</strong> (Comp. Eng.) &nbsp;·&nbsp; 
-            <strong>Ali Edip Mangtay</strong> (Soft. Eng.)
-        </p>
-        <p class="affiliation">
-            Istinye University — Faculty of Engineering and Natural Sciences<br>
-            <em>Digital Twins for Health Sciences</em> · Instructor: Şenol Pişkin
-        </p>
-        <p class="affiliation"><em>FEA data:</em> A. Ürel, Ş. Abdulrazak, E. Günal (Mech. Eng.)</p>
+<main class="main">
+    <header class="hero">
+        <div class="hero-top">
+            <span class="badge">ENS003 · Term Project</span>
+            <span class="live-dot" title="Surrogate model active">Live</span>
+        </div>
+        <h1>Hip Implant Stress &amp; Safety</h1>
+        <p class="hero-sub">Gaussian Process surrogate over 270 ANSYS static structural runs — predictions in milliseconds.</p>
+        <div class="team-chips">
+            <span>Ata Bulut</span>
+            <span>Recep Kamil Fırat</span>
+            <span>Ali Edip Mangtay</span>
+        </div>
+        <p class="affiliation">Istinye University · Digital Twins for Health Sciences · Şenol Pişkin</p>
     </header>
 
-    <div id="status" class="callout">
-        <strong>Status: <span id="status-text">{{ payload.status.text }}</span></strong><br>
-        <span id="status-msg">{{ payload.status.msg }}</span>
+    <div id="status" class="status-card" data-status="{{ payload.status.text | lower }}">
+        <div class="status-icon" aria-hidden="true">
+            <svg class="status-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="status-body">
+            <span class="status-label">Structural assessment</span>
+            <strong class="status-title"><span id="status-text">{{ payload.status.text }}</span></strong>
+            <p id="status-msg" class="status-msg">{{ payload.status.msg }}</p>
+        </div>
+        <div class="load-pill" id="loading-summary">m = 70 kg · K = 2.5 · θ = 0° · F = 1,717 N</div>
     </div>
 
-    <section>
-        <h2>1. Loading Summary</h2>
-        <p id="loading-summary"></p>
-    </section>
-
-    <section>
-        <h2>2. Safety Factor Predictions</h2>
-        <div class="figure-row">
-            <div id="gauge-equivalent" class="plot"></div>
-            <div id="gauge-neck"       class="plot"></div>
-            <div id="gauge-stem1"      class="plot"></div>
-            <div id="gauge-stem2"      class="plot"></div>
+    <section class="panel metrics-panel">
+        <div class="panel-head">
+            <h2>Peak response</h2>
+            <p class="panel-desc">Von Mises, principal stress &amp; deformation at current load case</p>
         </div>
-        <p class="caption">
-            Equivalent (Peak): <span id="sf-equivalent-pm"></span><span class="uncertainty" id="sf-equivalent-std"></span> | 
-            Neck: <span id="sf-neck-pm"></span><span class="uncertainty" id="sf-neck-std"></span> | 
-            STEM 1: <span id="sf-stem1-pm"></span><span class="uncertainty" id="sf-stem1-std"></span> | 
-            STEM 2: <span id="sf-stem2-pm"></span><span class="uncertainty" id="sf-stem2-std"></span>
-        </p>
+        <div class="metric-grid">
+            <article class="metric-card">
+                <span class="metric-label">Max Von Mises</span>
+                <span class="metric-value"><span id="stress-vm-pm">—</span><small>MPa</small></span>
+            </article>
+            <article class="metric-card">
+                <span class="metric-label">Max principal</span>
+                <span class="metric-value"><span id="stress-p-pm">—</span><small>MPa</small></span>
+            </article>
+            <article class="metric-card accent">
+                <span class="metric-label">Max deformation</span>
+                <span class="metric-value" id="deform">—</span>
+            </article>
+        </div>
     </section>
 
-    <section>
-        <h2>3. Peak Stress Predictions</h2>
-        <p>
-            Max Von Mises: <strong id="stress-vm-pm"></strong><span class="uncertainty" id="stress-vm-std"></span> MPa<br>
-            Max Principal: <strong id="stress-p-pm"></strong><span class="uncertainty" id="stress-p-std"></span> MPa<br>
-            Max Deformation: <strong id="deform"></strong><span class="uncertainty" id="deform-std"></span>
-        </p>
+    <section class="panel gauges-panel">
+        <div class="panel-head">
+            <h2>Safety factors</h2>
+            <p class="panel-desc">Minimum factors by implant region — threshold at 1.0 (yield)</p>
+        </div>
+        <div class="sf-summary">
+            <div class="sf-pill"><span>Equivalent</span><strong id="sf-equivalent-pm">—</strong></div>
+            <div class="sf-pill"><span>Neck</span><strong id="sf-neck-pm">—</strong></div>
+            <div class="sf-pill"><span>STEM 1</span><strong id="sf-stem1-pm">—</strong></div>
+            <div class="sf-pill"><span>STEM 2</span><strong id="sf-stem2-pm">—</strong></div>
+        </div>
+        <div class="gauge-grid">
+            <div class="chart-card"><div id="gauge-equivalent" class="plot"></div></div>
+            <div class="chart-card"><div id="gauge-neck" class="plot"></div></div>
+            <div class="chart-card"><div id="gauge-stem1" class="plot"></div></div>
+            <div class="chart-card"><div id="gauge-stem2" class="plot"></div></div>
+        </div>
     </section>
 
-    <section>
-        <h2>4. Comparison with Training Data</h2>
-        <div id="comparison" class="plot"></div>
+    <section class="panel chart-panel">
+        <div class="panel-head">
+            <h2>FEA comparison</h2>
+            <p class="panel-desc">Your prediction vs. training sweep (von Mises vs. patient mass)</p>
+        </div>
+        <div class="chart-card wide"><div id="comparison" class="plot plot-tall"></div></div>
     </section>
 
-    <section>
-        <h2>5. Model Performance</h2>
-        <table class="ref-table">
-            <thead>
-                <tr><th>Target</th><th>R² (Accuracy)</th><th>Avg Error</th></tr>
-            </thead>
-            <tbody>
-                {% for r in metrics_records %}
-                <tr>
-                    <td>{{ r.target.replace("_", " ") }}</td>
-                    <td>{{ "%.3f"|format(r.r2_cv) }}</td>
-                    <td>{{ "%.4f"|format(r.mae_cv) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Model accuracy</h2>
+            <p class="panel-desc">Grouped 5-fold CV metrics per target</p>
+        </div>
+        <div class="accuracy-grid">
+            {% for r in metrics_records %}
+            <article class="accuracy-card">
+                <h3>{{ r.target.replace("_", " ") }}</h3>
+                <div class="accuracy-bars">
+                    <div class="acc-row">
+                        <span>R²</span>
+                        <div class="bar-track"><div class="bar-fill" style="width: {{ (r.r2_cv * 100) | round }}%"></div></div>
+                        <span class="acc-num">{{ "%.3f"|format(r.r2_cv) }}</span>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
     </section>
 
-    <section>
-        <h2>6. Raw FEA Data</h2>
+    <section class="panel table-panel">
+        <div class="panel-head row-head">
+            <div>
+                <h2>Training corpus</h2>
+                <p class="panel-desc">{{ training_rows | length }} ANSYS design points</p>
+            </div>
+            <input type="search" id="table-search" class="table-search" placeholder="Filter cases…" autocomplete="off">
+        </div>
         <div class="table-wrap table-scroll">
-            <table class="data-table">
+            <table class="data-table" id="fea-table">
                 <thead>
                     <tr>
                         <th>Case</th>
                         <th>Mass</th>
                         <th>K</th>
                         <th>Angle</th>
-                        <th>Stress (MPa)</th>
-                        <th>SF Neck</th>
+                        <th>σ<sub>vm</sub> MPa</th>
+                        <th>SF neck</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for r in training_rows %}
-                    <tr>
-                        <td>{{ r.case_id }}</td>
+                    <tr data-mass="{{ r.patient_mass_kg }}" data-k="{{ r.K_factor }}" data-angle="{{ r.force_angle_deg }}">
+                        <td class="case-id">{{ r.case_id }}</td>
                         <td>{{ r.patient_mass_kg }}</td>
                         <td>{{ r.K_factor }}</td>
-                        <td>{{ r.force_angle_deg }}</td>
+                        <td>{{ r.force_angle_deg }}°</td>
                         <td>{{ (r.max_equivalent_vonmises_stress_Pa / 1e6) | round }}</td>
                         <td>{{ "%.2f"|format(r.safety_factor_neck_min) }}</td>
                     </tr>
@@ -155,19 +219,16 @@
         </div>
     </section>
 
-    <footer>
-        <p>
-            This dashboard was developed as a term project for the **ENS003 Digital Twins** course at Istinye University. 
-            The Gaussian Process Regression model was trained on data provided by the Mechanical Engineering team.
-        </p>
+    <footer class="site-footer">
+        <p>ENS003 Digital Twins · Istinye University. GPR trained on Mechanical Engineering FEA data (Aylin Urel, Sehed Abdulrazak, Enes Gunal).</p>
     </footer>
 </main>
 
-<script>
-    // These values are passed from Python to JavaScript once when the page loads
-    const INITIAL_PAYLOAD = {{ payload | tojson }};
-</script>
-<script src="{{ url_for('static', filename='app.js') }}"></script>
+<div id="loading-overlay" class="loading-overlay" hidden aria-hidden="true">
+    <div class="loader"></div>
+</div>
 
+<script>const INITIAL_PAYLOAD = {{ payload | tojson }};</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>

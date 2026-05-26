@@ -1,26 +1,30 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim
+# Railway / production image
+FROM python:3.11-slim
 
-# Set the working directory in the container
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libomp-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy the requirements file into the container
 COPY requirements.txt .
-
-# Install dependencies
-# We use --no-cache-dir to keep the image small
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the project files
-# (The .dockerignore file will exclude unnecessary items)
+# Train models at build time (joblib files are not committed to git per
+# the team .gitignore convention — the GroupKFold-trained joblibs that
+# do exist in the tree are re-validated against this build path).
+COPY data/dataset.csv data/dataset.csv
+COPY src/preprocess.py src/train.py src/predict.py src/
+ENV PYTHONPATH=/app/src
+RUN python src/train.py
+
 COPY . .
 
-# Expose the port the app runs on
+RUN chmod +x /app/docker-entrypoint.sh
+
+ENV PYTHONPATH=/app/src
+ENV PORT=5050
+
 EXPOSE 5050
 
-# Define environment variable to ensure output is logged
-ENV PYTHONUNBUFFERED=1
-
-# Command to run the application
-# We use the simplified app.py we just created
-CMD ["python", "src/app.py"]
+CMD ["/app/docker-entrypoint.sh"]

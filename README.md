@@ -62,6 +62,24 @@ hip_implant_ml/
 └── run.sh
 ```
 
+## Deploy on Railway (Docker)
+
+The repo includes a production `Dockerfile`: models are trained during the image
+build, and **Gunicorn** listens on Railway’s `PORT` at runtime.
+
+1. Push this repository to GitHub.
+2. In [Railway](https://railway.app), **New Project → Deploy from GitHub** and select the repo.
+3. Railway detects `railway.toml` and builds with the Dockerfile (no extra config needed).
+4. After deploy, open the generated public URL (health check: `GET /`).
+
+Local smoke test:
+
+```bash
+docker build -t hip-implant-ml .
+docker run --rm -p 5050:5050 -e PORT=5050 hip-implant-ml
+# http://localhost:5050
+```
+
 ## Setup
 
 XGBoost requires OpenMP on macOS:

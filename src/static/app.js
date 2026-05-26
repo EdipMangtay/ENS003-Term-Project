@@ -1,154 +1,173 @@
 /**
- * Hip-Implant Dashboard - Client side logic.
- * Simplified for students: Direct DOM updates and standard fetch calls.
+ * Hip Implant Digital Twin — client-side controller
  */
 
-// Plotly configuration
-const plotConfig = { responsive: true, displayModeBar: false };
+const plotConfig = {
+    responsive: true,
+    displayModeBar: false,
+};
 
-// IDs of all Plotly containers (used by the resize listener)
-const PLOT_IDS = [
-    "gauge-equivalent",
-    "gauge-neck",
-    "gauge-stem1",
-    "gauge-stem2",
-    "comparison"
-];
+const PLOT_THEME = {
+    paper_bgcolor: "rgba(0,0,0,0)",
+    plot_bgcolor: "rgba(0,0,0,0)",
+    font: { family: "DM Sans, system-ui, sans-serif", color: "#94a3b8", size: 11 },
+    margin: { l: 40, r: 24, t: 44, b: 40 },
+};
 
-/**
- * Updates all the text and numbers on the page.
- */
+let fetchTimer = null;
+let activePresetK = "2.5";
+
+function applyPlotTheme(fig) {
+    const layout = { ...fig.layout, ...PLOT_THEME };
+    if (layout.xaxis) layout.xaxis = { ...layout.xaxis, gridcolor: "rgba(148,163,184,0.1)", zerolinecolor: "rgba(148,163,184,0.15)" };
+    else layout.xaxis = { gridcolor: "rgba(148,163,184,0.1)", tickfont: { color: "#64748b" } };
+    if (layout.yaxis) layout.yaxis = { ...layout.yaxis, gridcolor: "rgba(148,163,184,0.1)", zerolinecolor: "rgba(148,163,184,0.15)" };
+    else layout.yaxis = { gridcolor: "rgba(148,163,184,0.1)", tickfont: { color: "#64748b" } };
+    return { ...fig, layout };
+}
+
+function setLoading(on) {
+    const el = document.getElementById("loading-overlay");
+    el.hidden = !on;
+    el.classList.toggle("visible", on);
+    el.setAttribute("aria-hidden", on ? "false" : "true");
+}
+
+function updateStatusCard(status) {
+    const card = document.getElementById("status");
+    document.getElementById("status-text").textContent = status.text;
+    document.getElementById("status-msg").textContent = status.msg;
+    card.dataset.status = status.text.toLowerCase();
+}
+
 function updateText(data) {
-    const input = data.input;
-    const metrics = data.metrics;
-    const std = data.metrics_std;
-    const status = data.status;
+    const { input, metrics, status } = data;
 
-    // 1. Update status bar
-    const statusDiv = document.getElementById("status");
-    document.getElementById("status-text").innerText = status.text;
-    document.getElementById("status-msg").innerText = status.msg;
-    statusDiv.style.borderLeftColor = status.color;
+    updateStatusCard(status);
 
-    // 2. Update Loading summary
-    document.getElementById("loading-summary").innerText =
-        `m = ${input.mass} kg, K = ${input.k}, θ = ${input.angle}°, F = ${Math.round(input.force_n)} N`;
+    document.getElementById("loading-summary").textContent =
+        `m = ${input.mass} kg · K = ${input.k} · θ = ${input.angle}° · F = ${Math.round(input.force_n).toLocaleString()} N`;
 
-    // 3. Update Sidebar displays
-    document.getElementById("mass-display").innerText = input.mass;
-    document.getElementById("k-display").innerText = input.k;
-    document.getElementById("angle-display").innerText = input.angle;
+    document.getElementById("mass-display").textContent = input.mass;
+    document.getElementById("k-display").textContent = input.k;
+    document.getElementById("angle-display").textContent = input.angle;
 
-    // 4. Update numeric outputs
-    // Safety Factors (formatted to 3 decimal places)
-    document.getElementById("sf-equivalent-pm").innerText = metrics.safety_factor_equivalent_min.toFixed(3);
-    document.getElementById("sf-neck-pm").innerText       = metrics.safety_factor_neck_min.toFixed(3);
-    document.getElementById("sf-stem1-pm").innerText      = metrics.safety_factor_stem1_min.toFixed(3);
-    document.getElementById("sf-stem2-pm").innerText      = metrics.safety_factor_stem2_min.toFixed(3);
+    document.getElementById("mass").value = input.mass;
+    document.getElementById("k").value = input.k;
+    document.getElementById("angle").value = input.angle;
 
-    // Stresses (converted to MPa and rounded)
-    document.getElementById("stress-vm-pm").innerText = Math.round(metrics.max_equivalent_vonmises_stress_Pa / 1e6);
-    document.getElementById("stress-p-pm").innerText  = Math.round(metrics.max_principal_stress_Pa / 1e6);
+    const fmt = (v) => v.toFixed(3);
+    document.getElementById("sf-equivalent-pm").textContent = fmt(metrics.safety_factor_equivalent_min);
+    document.getElementById("sf-neck-pm").textContent = fmt(metrics.safety_factor_neck_min);
+    document.getElementById("sf-stem1-pm").textContent = fmt(metrics.safety_factor_stem1_min);
+    document.getElementById("sf-stem2-pm").textContent = fmt(metrics.safety_factor_stem2_min);
 
-    // Deformation (converted to mm)
-    document.getElementById("deform").innerText = (metrics.max_total_deformation_m * 1000).toFixed(3) + " mm";
+    document.getElementById("stress-vm-pm").textContent = Math.round(metrics.max_equivalent_vonmises_stress_Pa / 1e6);
+    document.getElementById("stress-p-pm").textContent = Math.round(metrics.max_principal_stress_Pa / 1e6);
+    document.getElementById("deform").textContent =
+        `${(metrics.max_total_deformation_m * 1000).toFixed(3)} mm`;
 
-    // 5. ±σ uncertainty spans (optional chaining guards against missing stds)
-    _setStd("sf-equivalent-std", std?.safety_factor_equivalent_min, "sf");
-    _setStd("sf-neck-std",       std?.safety_factor_neck_min,       "sf");
-    _setStd("sf-stem1-std",      std?.safety_factor_stem1_min,      "sf");
-    _setStd("sf-stem2-std",      std?.safety_factor_stem2_min,      "sf");
-    _setStd("stress-vm-std",     std?.max_equivalent_vonmises_stress_Pa, "mpa");
-    _setStd("stress-p-std",      std?.max_principal_stress_Pa,          "mpa");
-    _setStd("deform-std",        std?.max_total_deformation_m,          "mm");
+    highlightTableRow(input.mass, input.k, input.angle);
+    syncPresetButtons(input.k);
 }
 
-/**
- * Writes a ±σ string into a span, formatted by kind.
- * Clears the span when the value is falsy (0 or undefined).
- * @param {string} id - DOM element id
- * @param {number|undefined} val - raw std value in SI units
- * @param {"sf"|"mpa"|"mm"} kind - controls formatting and unit conversion
- */
-function _setStd(id, val, kind) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    if (!val) {
-        el.innerText = "";
-        return;
-    }
-    let formatted;
-    if (kind === "sf") {
-        formatted = ` ± ${val.toFixed(3)}`;
-    } else if (kind === "mpa") {
-        formatted = ` ± ${Math.round(val / 1e6)} MPa`;
-    } else if (kind === "mm") {
-        formatted = ` ± ${(val * 1000).toFixed(4)} mm`;
-    }
-    el.innerText = formatted;
+function highlightTableRow(mass, k, angle) {
+    document.querySelectorAll("#fea-table tbody tr").forEach((row) => {
+        const match =
+            Number(row.dataset.mass) === Number(mass) &&
+            Number(row.dataset.k) === Number(k) &&
+            Number(row.dataset.angle) === Number(angle);
+        row.classList.toggle("highlight", match);
+        if (match) row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
 }
 
-/**
- * Redraws the Plotly charts.
- */
+function syncPresetButtons(k) {
+    const kStr = String(Number(k));
+    document.querySelectorAll(".preset").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.k === kStr);
+    });
+}
+
 function updateCharts(figures) {
-    Plotly.react("gauge-equivalent", figures.safety_factor_equivalent_min.data, figures.safety_factor_equivalent_min.layout, plotConfig);
-    Plotly.react("gauge-neck",       figures.safety_factor_neck_min.data,       figures.safety_factor_neck_min.layout,       plotConfig);
-    Plotly.react("gauge-stem1",      figures.safety_factor_stem1_min.data,      figures.safety_factor_stem1_min.layout,      plotConfig);
-    Plotly.react("gauge-stem2",      figures.safety_factor_stem2_min.data,      figures.safety_factor_stem2_min.layout,      plotConfig);
-    Plotly.react("comparison",       figures.comparison.data,                   figures.comparison.layout,                   plotConfig);
+    const pairs = [
+        ["gauge-equivalent", figures.safety_factor_equivalent_min],
+        ["gauge-neck", figures.safety_factor_neck_min],
+        ["gauge-stem1", figures.safety_factor_stem1_min],
+        ["gauge-stem2", figures.safety_factor_stem2_min],
+        ["comparison", figures.comparison],
+    ];
+    pairs.forEach(([id, fig]) => {
+        const themed = applyPlotTheme(fig);
+        Plotly.react(id, themed.data, themed.layout, plotConfig);
+    });
 }
 
-/**
- * Fetches new predictions from the Python server.
- */
 function fetchPrediction() {
     const mass = document.getElementById("mass").value;
     const k = document.getElementById("k").value;
     const angle = document.getElementById("angle").value;
 
-    const url = `/predict?mass=${mass}&k=${k}&angle=${angle}`;
+    document.getElementById("mass-display").textContent = mass;
+    document.getElementById("k-display").textContent = k;
+    document.getElementById("angle-display").textContent = angle;
 
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            updateText(data);
-            updateCharts(data.figures);
-        })
-        .catch(error => console.error("Error fetching prediction:", error));
+    clearTimeout(fetchTimer);
+    fetchTimer = setTimeout(() => {
+        setLoading(true);
+        fetch(`/predict?mass=${mass}&k=${k}&angle=${angle}`)
+            .then((r) => {
+                if (!r.ok) throw new Error(r.statusText);
+                return r.json();
+            })
+            .then((data) => {
+                updateText(data);
+                updateCharts(data.figures);
+            })
+            .catch((err) => console.error("Prediction failed:", err))
+            .finally(() => setLoading(false));
+    }, 120);
 }
 
-// Attach event listeners to sliders
+function filterTable(query) {
+    const q = query.trim().toLowerCase();
+    document.querySelectorAll("#fea-table tbody tr").forEach((row) => {
+        const text = row.textContent.toLowerCase();
+        row.classList.toggle("hidden", q.length > 0 && !text.includes(q));
+    });
+}
+
+function openSidebar(open) {
+    const sidebar = document.getElementById("sidebar");
+    const backdrop = document.getElementById("sidebar-backdrop");
+    sidebar.classList.toggle("open", open);
+    backdrop.classList.toggle("visible", open);
+    backdrop.hidden = !open;
+}
+
 document.getElementById("mass").addEventListener("input", fetchPrediction);
 document.getElementById("k").addEventListener("input", fetchPrediction);
 document.getElementById("angle").addEventListener("input", fetchPrediction);
 
-// Quick preset buttons
-document.querySelectorAll(".preset").forEach(button => {
+document.querySelectorAll(".preset").forEach((button) => {
     button.addEventListener("click", () => {
-        document.getElementById("k").value = button.getAttribute("data-k");
+        document.getElementById("k").value = button.dataset.k;
+        activePresetK = button.dataset.k;
         fetchPrediction();
     });
 });
 
-// Mobile sidebar toggle
 document.getElementById("sidebar-toggle").addEventListener("click", () => {
-    document.getElementById("sidebar").classList.toggle("open");
+    const open = !document.getElementById("sidebar").classList.contains("open");
+    openSidebar(open);
 });
 
-// Resize all Plotly containers when the window is resized
-window.addEventListener("resize", () => {
-    PLOT_IDS.forEach(id => {
-        const el = document.getElementById(id);
-        if (el && el._fullLayout) {
-            Plotly.Plots.resize(el);
-        }
-    });
-});
+document.getElementById("sidebar-backdrop").addEventListener("click", () => openSidebar(false));
 
-// Initial load
+document.getElementById("table-search").addEventListener("input", (e) => filterTable(e.target.value));
+
 document.addEventListener("DOMContentLoaded", () => {
-    // INITIAL_PAYLOAD is provided by Flask (see index.html)
     updateText(INITIAL_PAYLOAD);
     updateCharts(INITIAL_PAYLOAD.figures);
+    syncPresetButtons(INITIAL_PAYLOAD.input.k);
 });

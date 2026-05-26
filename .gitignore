@@ -1,6 +1,6 @@
 # Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
 .Python
@@ -22,6 +22,12 @@ Thumbs.db
 .idea/
 .claude/
 CLAUDE_CONTEXT.md
+.env
+*.log
+
+# Trained artifacts (rebuilt via train.py / Docker) — keeps existing
+# tracked .joblib files but stops new ones from auto-adding.
+models/*.joblib
 
 # Reports & generated docs (not committed — local academic artefacts)
 FINAL_REPORT_DRAFT.md

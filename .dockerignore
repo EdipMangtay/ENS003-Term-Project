@@ -4,14 +4,20 @@ __pycache__/
 .pytest_cache/
 .coverage
 .git/
-tests/
-screenshots/
+.DS_Store
+.claude/
+
+# Documentation / artefacts not needed in the runtime image
 docs/
-*.xlsx
+screenshots/
+tests/
 *.xlsx
 Ti64_Hip_Implant_Dataset.csv
 pytest.ini
 .coveragerc
+
+# Build/CI helpers
 run.sh
-Dockerfile
-.dockerignore
+
+# Models are rebuilt inside the image (see Dockerfile RUN python src/train.py)
+models/*.joblib

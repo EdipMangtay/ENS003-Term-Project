@@ -3,6 +3,7 @@ numpy
 scikit-learn
 joblib
 flask
+gunicorn
 xgboost
 plotly
 openpyxl
