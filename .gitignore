@@ -26,7 +26,9 @@ CLAUDE_CONTEXT.md
 # Reports & generated docs (not committed — local academic artefacts)
 FINAL_REPORT_DRAFT.md
 Final_Project_Report.docx
+Final_Project_Report_v*.docx
 Final_Project_Report_With_Images.docx
+~$*.docx
 Direct_Conversion_Report.docx
 ENS003 Project Report Template.docx
 ENS003 Project Report.docx*.pdf
